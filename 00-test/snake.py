@@ -1,27 +1,62 @@
-import pygame
-from pygame.locals import *
+from random import randint
+from time import sleep
 
-pygame.init()
+import pygame
+from pygame.locals import KEYDOWN, QUIT, K_ESCAPE, K_UP, K_DOWN, K_LEFT, K_RIGHT
+
+from PodSixNet.Connection2 import Client
+
+
+myname = randint(0, 10 ** 9)  # avoid name collisions
+print 'My name is %d' % myname
+other_players = {}  # map names to rectangles
+connected = False
+
+class SnakeClient(Client):
+    
+    def Network_connected(self, data):  # connected: send my name
+        global connected
+        connected = True
+        self.send({'action': 'name',
+                   'name': myname})
+        
+    def Network_login(self, data):  # someone joined
+        name = data['name']
+        if name != myname:  # ignore messages about me
+            other_players[name] = pygame.Rect(200, 150, 10, 10)
+        
+    def Network_pos(self, data):
+        name = data['name']
+        if name != myname:  # ignore messages about me
+            top, left = data['topleft']
+            other_players[name] = pygame.Rect(top, left, 10, 10)
+        
+
+client = SnakeClient()
+client.connect('localhost', 8888)
+
+
 
 # gfx
-WHITE = (250, 250, 250) # rgb
-BLACK = (0, 0, 0)
+pygame.init()
 screen = pygame.display.set_mode((400, 300))
-screen.fill(WHITE)
+screen.fill((0, 0, 0))
 pygame.display.set_caption('Snake')
 
-
-head_rect = pygame.Rect(200, 150, 10, 10)
-dx, dy = 0, 1 # original direction: down
+myrect = pygame.Rect(200, 150, 10, 10)  # original position: middle of the screen
+dx, dy = 0, 1  # original direction: down
 
 # clock
 clock = pygame.time.Clock()
 
+
 while True:
     clock.tick(20)
+
+    # network
+    client.pump()
     
-    # inputs
-    for event in pygame.event.get():
+    for event in pygame.event.get():  # keyboard inputs
         if (event.type == QUIT):
             exit()
         if event.type == KEYDOWN:
@@ -36,12 +71,19 @@ while True:
                 dx, dy = -1, 0
             elif key == K_RIGHT:
                 dx, dy = 1, 0
+        
+    if not connected:  # wait until we're connected
+        continue
     
-    # update game state
-    head_rect.move_ip(dx, dy)
+    # update game state and forward it to other players
+    myrect.move_ip(dx, dy)
+    client.send({'action': 'pos',
+                 'topleft': myrect.topleft})
     
     # gfx
-    screen.fill(WHITE)
-    pygame.draw.rect(screen, BLACK, head_rect)
+    screen.fill((0, 0, 0))
+    pygame.draw.rect(screen, (255, 0, 0), myrect)
+    for name, rect in other_players.items():
+        pygame.draw.rect(screen, (255, 255, 255), rect)
     pygame.display.update()
     

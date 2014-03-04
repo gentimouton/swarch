@@ -9,9 +9,9 @@ from EndPoint import EndPoint
 
 class Client:
 
-    def connect(self, *args, **kwargs):
+    def connect(self, host, port):
         self.endpoint = EndPoint()
-        self.endpoint.DoConnect(*args, **kwargs)
+        self.endpoint.DoConnect((host, port))
         # check for connection errors:
         self.pump()
     

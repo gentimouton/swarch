@@ -3,30 +3,40 @@ from PodSixNet.Channel import Channel
 from time import sleep
 
 class ClientChannel(Channel):
+    
+    def __init__(self, *args, **kwargs):
+        self.name = ''
+        Channel.__init__(self, *args, **kwargs)
+
+    def Network_name(self, data):
+        self.name = data['name']
+        print 'Name received: %s from %s' % (self.name, str(self.addr))
+        self._server.send_all({'action': 'login',
+                               'name': self.name})
+        
+    def Network_pos(self, data):
+        self._server.send_all({'action': 'pos',
+                               'name': self.name,
+                               'topleft': data['topleft']})
         
     def Close(self):
-        print 'Disconnection from: %s' % (str(self.addr))
-    
-    def Network_ping(self, data):
-        print 'Ping by: %s' % (str(self.addr))
-        self.Send({'action': 'pong'})
+        print 'Disconnection from: %s - %s' % (self.name, str(self.addr))
+        self._server.send_all({'action': 'logout',
+                               'name': self.name})
         
     
-class ChatServer(Server):
+class RelayServer(Server):
     channelClass = ClientChannel
-    
-    def __init__(self, host, port):
-        Server.__init__(self, localaddr=(host, port))
-        print 'Server running at %s:%d' % (host, port)
     
     def Connected(self, channel, addr):
         print 'Connection from: %s' % (str(addr))
-        
-    def run(self):
-        while True:
-            self.Pump()
-            sleep(0.1)
+    
+    def send_all(self, data):
+        for c in self.channels:
+            c.Send(data)
 
 
-s = ChatServer('localhost', 8888)
-s.run()
+s = RelayServer(localaddr=('localhost', 8888))
+while True:
+    s.Pump()
+    sleep(0.05)
