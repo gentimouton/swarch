@@ -39,4 +39,5 @@ class RelayServer(Server):
 s = RelayServer(localaddr=('localhost', 8888))
 while True:
     s.Pump()
-    sleep(0.05)
+    sleep(.1)
+    
