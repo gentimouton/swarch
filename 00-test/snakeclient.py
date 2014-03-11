@@ -1,7 +1,9 @@
-from network import Handler, poll
-from pygame.locals import KEYDOWN, QUIT, K_ESCAPE, K_UP, K_DOWN, K_LEFT, K_RIGHT
 from random import randint
+
 import pygame
+from pygame.locals import KEYDOWN, QUIT, K_ESCAPE, K_UP, K_DOWN, K_LEFT, K_RIGHT
+
+from network import Handler, poll
 
 
 myname = randint(0, 10 ** 9)  # avoid name collisions
@@ -18,13 +20,13 @@ class Client(Handler):
     def on_msg(self, data):
         msgtype = data['msgtype']
         name = data['name']
-        if msgtype == 'join': # someone joined
-            if name != myname: # ignore messages about me
+        if msgtype == 'join':  # someone joined
+            if name != myname:  # ignore messages about me
                 other_players[name] = pygame.Rect(200, 150, 10, 10)
-        elif msgtype == 'leave': # someone left
+        elif msgtype == 'leave':  # someone left
             del other_players[name]
-        elif msgtype == 'move': # someone moved
-            if name != myname: # ignore messages about me
+        elif msgtype == 'move':  # someone moved
+            if name != myname:  # ignore messages about me
                 top, left = data['top'], data['left']
                 other_players[name] = pygame.Rect(left, top, 10, 10)
 
@@ -41,7 +43,7 @@ clock = pygame.time.Clock()
 
 while True:
     clock.tick(20)
-    poll() # push and pull network messages
+    poll()  # push and pull network messages
     
     for event in pygame.event.get():  # keyboard inputs
         if (event.type == QUIT):
@@ -62,12 +64,12 @@ while True:
     if not client.connected:  # display only after we connect
         continue
     
-    myrect.move_ip(dx, dy) # update my game state and forward it to others
+    myrect.move_ip(dx, dy)  # update my game state and forward it to others
     client.do_send({'msgtype': 'move', 'name': myname,
                     'top': myrect.top, 'left': myrect.left})
     
     screen.fill((0, 0, 0))  # black
-    pygame.draw.rect(screen, (255, 0, 0), myrect) # red
+    pygame.draw.rect(screen, (255, 0, 0), myrect)  # red
     for rect in other_players.values():
-        pygame.draw.rect(screen, (255, 255, 255), rect) # white
+        pygame.draw.rect(screen, (255, 255, 255), rect)  # white
     pygame.display.update()

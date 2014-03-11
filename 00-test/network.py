@@ -100,7 +100,7 @@ class Handler(asynchat.async_chat):
     
 class Listener(asyncore.dispatcher):
     
-    handlerClass = Handler
+    handlerClass = Handler # override this class by your own
       
     def __init__(self, port):
         asyncore.dispatcher.__init__(self)
@@ -111,11 +111,17 @@ class Listener(asyncore.dispatcher):
     def handle_accept(self):  # called on the passive side
         sock, (host, port) = self.accept()
         h = self.handlerClass(host, port, sock)
+        self.on_accept(h)
         h.on_open()
     
+    # API you can use
     def stop(self):
         self.close()
 
+    # callbacks you override
+    def on_accept(self, h):
+        pass
+    
     
 def poll():
     asyncore.loop(count=1)

@@ -1,37 +1,51 @@
-from network import Listener, Handler, poll
 from time import sleep
 
+from network import Listener, Handler, poll
 
-handlers = set()
-def broadcast(msg):
-    copies = handlers.copy() # avoid "Set changed size during iteration" error
-    [h.do_send(msg) for h in copies]
-    
-    
+
 class MyHandler(Handler):
+    
+    server = None # replaced by Server.on_accept
     
     def on_open(self):
         self.myname = ''
-        handlers.add(self)
+        self.server.add_handler(self)
         
     def on_close(self):
-        handlers.remove(self)
-        broadcast({'msgtype': 'leave', 'name': self.myname})
+        self.server.remove_handler(self)
+        self.server.broadcast({'msgtype': 'leave', 'name': self.myname})
         
     def on_msg(self, data):
         msgtype = data['msgtype']
         name = data['name']
-        if msgtype == 'join': # the player joined: forward his/her name
+        if msgtype == 'join':  # the player joined: forward his/her name
             self.myname = name
-            broadcast({'msgtype': 'join', 'name': name})
+            self.server.broadcast({'msgtype': 'join', 'name': name})
         elif msgtype == 'move':
             top, left = data['top'], data['left']
-            broadcast({'msgtype': 'move', 'name': name,
-                       'top': top, 'left': left})
+            self.server.broadcast({'msgtype': 'move', 'name': name,
+                                   'top': top, 'left': left})
             
             
 class Server(Listener):
+    
     handlerClass = MyHandler
+    handlers = set()
+    
+    def on_accept(self, handler):
+        handler.server = self
+        self.handlers.add(handler)
+        
+    def broadcast(self, msg):
+        copies = self.handlers.copy()  # avoid "Set changed size during iteration"
+        [h.do_send(msg) for h in copies]
+    
+    def add_handler(self, h):
+        self.handlers.add(h)
+        
+    def remove_handler(self, h):
+        self.handlers.remove(h)
+    
 
 server = Server(8888)
 while 1:
