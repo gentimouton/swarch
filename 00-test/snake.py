@@ -8,7 +8,6 @@ from PodSixNet.Connection2 import Client
 
 
 myname = randint(0, 10 ** 9)  # avoid name collisions
-print 'My name is %d' % myname
 other_players = {}  # map names to rectangles
 connected = False
 
@@ -36,25 +35,20 @@ client = SnakeClient()
 client.connect('localhost', 8888)
 
 
-
 # gfx
 pygame.init()
 screen = pygame.display.set_mode((400, 300))
-screen.fill((0, 0, 0))
-pygame.display.set_caption('Snake')
+screen.fill((0, 0, 0))  # black
 
-myrect = pygame.Rect(200, 150, 10, 10)  # original position: middle of the screen
-dx, dy = 0, 1  # original direction: down
+myrect = pygame.Rect(200, 150, 10, 10)  # start position: middle of the screen
+dx, dy = 0, 1  # starting direction: down
 
-# clock
 clock = pygame.time.Clock()
-
 
 while True:
     clock.tick(20)
 
-    # network
-    client.pump()
+    client.pump() # network
     
     for event in pygame.event.get():  # keyboard inputs
         if (event.type == QUIT):
@@ -81,9 +75,9 @@ while True:
                  'topleft': myrect.topleft})
     
     # gfx
-    screen.fill((0, 0, 0))
-    pygame.draw.rect(screen, (255, 0, 0), myrect)
+    screen.fill((0, 0, 0))  # black
+    pygame.draw.rect(screen, (255, 0, 0), myrect) # red
     for name, rect in other_players.items():
-        pygame.draw.rect(screen, (255, 255, 255), rect)
+        pygame.draw.rect(screen, (255, 255, 255), rect) # white
     pygame.display.update()
     
