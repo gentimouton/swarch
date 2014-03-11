@@ -1,116 +1,121 @@
+"""
+Simple JSON wrapper on top of asyncore TCP sockets. 
+Provides on_open, on_close, on_msg, do_send, and do_close callbacks.
+
+Public domain
+
+With inspiration from:
+http://pymotw.com/2/asynchat/
+http://code.google.com/p/podsixnet/
+http://docstore.mik.ua/orelly/other/python/0596001886_pythonian-chp-19-sect-3.html
+
+
+#################
+# Echo server:
+#################
+from network import Listener, Handler, poll
+
+class MyHandler(Handler):
+    def on_msg(self, data):
+        self.do_send(data)
+        
+class EchoServer(Listener):
+    handlerClass = MyHandler
+
+server = EchoServer(8888)
+while 1:
+    poll()
+
+
+#################
+# One-message client:
+#################
+from network import Handler, poll
+
+done = False
+
+class Client(Handler):
+    def on_open(self):
+        self.do_send({'a': [1,2], 5: 'hi'})
+        global done
+        done = True
+
+client = Client('localhost', 8888)
+while not done:
+    poll()
+client.do_close()
+
+"""
+
 import asynchat
 import asyncore
+import json
 import socket
-from time import sleep
-
-from rencode import loads, dumps
 
 
-_terminator = '\0'
-
-def _make_TCP_socket():
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    # don't use Nagle's algorithm
-    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-    return sock
-
-
-
-class BaseHandler(asynchat.async_chat):
+class Handler(asynchat.async_chat):
     
-    def __init__(self, sock):
-        self._rcv_buffer = ''
-        self.set_terminator(_terminator)
-        asynchat.async_chat.__init__(self, sock)
-
+    def __init__(self, host, port, sock=None):
+        if sock:  # passive side: Handler automatically created by a Listener
+            asynchat.async_chat.__init__(self, sock)
+        else:  # active side: Handler created manually
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # TCP
+            asynchat.async_chat.__init__(self, sock)
+            self.connect((host, port))  # asynchronous and non-blocking
+        self.set_terminator('\0')
+        self._buffer = []
+        
     def collect_incoming_data(self, data):
-        self._rcv_buffer += data
+        self._buffer.append(data)
 
     def found_terminator(self):
-        data = loads(self._rcv_buffer)
-        self._rcv_buffer = ''
-        self._nw.on_msg(self, data)
-        
+        msg = json.loads(''.join(self._buffer))
+        self._buffer = []
+        self.on_msg(msg)
+    
     def handle_close(self):
-        asyncore.dispatcher.close()  # close the socket
-        self._nw.on_close(self)
-        
-    def handler_error(self):
-        self._nw.on_error(self)
-        
-    def do_send(self, data):
-        # asyncore.dispatcher.send() already exists, therefore do_send()
-        msg_to_send = dumps(data) + _terminator
-        self.push(msg_to_send)
-    
-    def do_close(self, handler):
-        handler.handle_close() # will call on_close
-         
+        self.close()
+        self.on_close()
 
-class Handler(BaseHandler):
-    """ A Handler that can connect to a listening socket.
-    """
-
-    def __init__(self, host, port):
-        sock = _make_TCP_socket()
-        BaseHandler.__init__(self, sock)
-        self.connect((host, port)) # asynchronous/non-blocking socket opening 
-        
-    def handle_connect(self):
-        print 'client connected'
+    def handle_connect(self):  # called on the active side
         self.on_open()
-
-    def connect(self, host, port, blocking=True):
-        if blocking: # keep polling until the socket returns
-            while not self.connected: 
-                poll()
-        # return handler # TODO: should I return it?
+        
+    # API you can use
+    def do_send(self, msg):
+        self.push(json.dumps(msg) + '\0')
+        
+    def do_close(self):
+        self.handle_close()  # will call self.on_close
     
+    # callbacks you should override
+    def on_open(self):
+        pass
         
+    def on_close(self):
+        pass
         
+    def on_msg(self, data):
+        pass
+    
+    
 class Listener(asyncore.dispatcher):
-    """ Create a handler for each incoming connection.
-    """
     
+    handlerClass = Handler
+      
     def __init__(self, port):
-        sock = _make_TCP_socket()
-        asyncore.dispatcher.__init__(self, sock)
+        asyncore.dispatcher.__init__(self)
+        self.create_socket(socket.AF_INET, socket.SOCK_STREAM)  # TCP
         self.bind(('', port))
-        # Windows won't allow more than 5 connections at once. 
-        # http://docs.python.org/2/library/socket.html#socket.socket.listen
-        self.listen(5)
+        self.listen(5)  # max 5 incoming connections at once (Windows' limit)
 
-    def handle_accept(self):
-        # Called someone tries to connect to our socket.
-        sock, addr = self.accept()
-        BaseHandler(sock)
-        #self._nw.on_open(h) # TODO: move this to the Handler
+    def handle_accept(self):  # called on the passive side
+        sock, (host, port) = self.accept()
+        h = self.handlerClass(host, port, sock)
+        h.on_open()
     
     def stop(self):
-        self.handle_close() # asyncore method, closes listening socket
-        
+        self.close()
 
-   
     
-
-
-
-def poll(self):
-    asyncore.loop(count=1) # poll sockets once, then return
-        
-        
-    
-    # override these callbacks
-    def on_open(self, handler):
-        print '%s opened' % str(handler.addr)
-    
-    def on_msg(self, handler, data):
-        print '%s received %s' % (str(handler.addr), str(data))
-    
-    def on_close(self, handler):
-        print '%s closed' % str(handler.addr)
-    
-    def on_error(self, handler):
-        print '%s error' % str(handler.addr)
-    
-
+def poll():
+    asyncore.loop(count=1)
