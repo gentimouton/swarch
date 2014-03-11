@@ -6,19 +6,17 @@ from pygame.locals import KEYDOWN, QUIT, K_ESCAPE, K_UP, K_DOWN, K_LEFT, K_RIGHT
 
 
 pygame.init()
-screen = pygame.display.set_mode((80, 60))
+screen = pygame.display.set_mode((400, 300))
 screen.fill((0, 0, 0))  # black
 
-#pellet = pygame.Rect(randint(0, 39) * 10, randint(0, 29) * 10, 10, 10)
-#myboxes = deque([pygame.Rect(200, 150, 10, 10)])  # start: middle of the screen
-pellet = pygame.Rect(randint(0, 3) * 10, randint(0, 2) * 10, 10, 10)
-myboxes = deque([pygame.Rect(40, 30, 10, 10)])  # start: middle of the screen
+pellet = pygame.Rect(randint(0, 39) * 10, randint(0, 29) * 10, 10, 10)
+myboxes = deque([pygame.Rect(200, 150, 10, 10)])  # start: middle of the screen
 dx, dy = 0, 10  # start direction: down
 
 clock = pygame.time.Clock()
 
 while True:
-    clock.tick(1)  # frames per second
+    clock.tick(5)  # frames per second
     
     for event in pygame.event.get():  # inputs
         if event.type == QUIT:
@@ -36,11 +34,11 @@ while True:
             elif key == K_RIGHT:
                 dx, dy = 10, 0
     
-    headbox = myboxes[0].copy()
+    headbox = myboxes[-1].copy()
     headbox.move_ip(dx, dy)  # move head
     myboxes.append(headbox)
     if headbox.colliderect(pellet):  # ate pellet: place new pellet
-        pellet = pygame.Rect(randint(0, 390), randint(0, 290), 10, 10)
+        pellet = pygame.Rect(randint(0, 39) * 10, randint(0, 29) * 10, 10, 10)
     else:  # no collision: remove last box
         myboxes.popleft()
     
