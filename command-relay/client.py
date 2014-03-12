@@ -1,46 +1,67 @@
 from random import randint
 
-import pygame
+from pygame import Rect, init as pygame_init
+from pygame.display import set_mode
+from pygame.time import Clock
 from pygame.locals import KEYDOWN, QUIT, K_ESCAPE, K_UP, K_DOWN, K_LEFT, K_RIGHT
 
 from network import Handler, poll
 
 
-myname = randint(0, 10 ** 9)  # avoid name collisions
-players = {}  # map names to rectangles
-
+myname, mybox = None, None  # myname is given by the server
+players = {}  # map player name to rectangle
+pellets = []
+        
 class Client(Handler):
     
-    def on_open(self):
-        self.do_send({'msgtype':'join', 'name':myname})
-    
     def on_msg(self, data):
-        msgtype, name = data['msgtype'], data['name']
-        if msgtype == 'join':  # someone joined
-            players[name] = pygame.Rect(200, 150, 10, 10)
-        elif msgtype == 'leave':  # someone left
+        msgtype, name = data['msg_type'], data['name']
+        
+        if msgtype == 'welcome':
+            for id, state in data['pellets']:  # create all pellets
+                left, top, width, height = tuple(state)
+                pellets.append(Rect(left, top, width, height))
+            for name, state in data['players']:  # create all players
+                left, top, width, height = tuple(state)
+                players[name] = Rect(left, top, width, height)
+            myname, mybox = name, players[name]
+                
+        elif msgtype == 'join' and name != myname:  # ignore my join message
+            left, top, width, height = tuple(data['state']) 
+            players[name] = Rect(left, top, width, height)
+            
+        elif msgtype == 'leave':
             del players[name]
-        elif msgtype == 'move':  # someone moved
-            top, left = data['top'], data['left']
-            players[name] = pygame.Rect(left, top, 10, 10)
+            
+        elif msgtype == 'move' and name != myname:  # ignore my move messages
+            left, top, width, height = tuple(data['state'])
+            players[name] = Rect(left, top, width, height)
+            
+        elif msgtype == 'eat':
+            # TODO: if name is myname, don't update my left,top  
+            left, top, width, height = tuple(data['state'])
+            players[name] = Rect(left, top, width, height)
+            pellets[data['pellet_index']] = data['new_pellet']
+            
+            
+        
 
 client = Client('localhost', 8888)
 
-pygame.init()
-screen = pygame.display.set_mode((400, 300))
-screen.fill((0, 0, 0))  # black
+pygame_init()
+screen = set_mode((400, 300))
+clock = Clock()
 
-myrect = pygame.Rect(200, 150, 10, 10)  # start position: middle of the screen
-dx, dy = 0, 1  # starting direction: down
-
-clock = pygame.time.Clock()
+borders = [Rect(0, 0, 2, 300), Rect(0, 0, 400, 2),
+           Rect(398, 0, 2, 300), Rect(0, 298, 400, 2)]
+dx, dy = 0, 1  # start direction: down
+delay = 0  # start moving right away 
 
 while True:
-    clock.tick(20)
-    poll()  # push and pull network messages
+    clock.tick(50)  # frames per second
     
-    for event in pygame.event.get():  # keyboard inputs
-        if (event.type == QUIT):
+    for event in pygame.event.get():  # inputs
+        if event.type == QUIT:
             exit()
         if event.type == KEYDOWN:
             key = event.key
@@ -54,16 +75,31 @@ while True:
                 dx, dy = -1, 0
             elif key == K_RIGHT:
                 dx, dy = 1, 0
-        
-    if not client.connected:  # display only after we connect
+    
+    if not myname:  # until we receive a 'welcome' message
         continue
     
-    myrect.move_ip(dx, dy)  # update my game state and forward it to others
-    client.do_send({'msgtype': 'move', 'name': myname,
-                    'top': myrect.top, 'left': myrect.left})
+    delay -= 4
     
-    screen.fill((0, 0, 0))  # black
-    pygame.draw.rect(screen, (255, 0, 0), myrect)  # red
-    for rect in other_players.values():
-        pygame.draw.rect(screen, (255, 255, 255), rect)  # white
+#     if mybox.collidelist(borders) != -1:  # game over
+#         mybox = Rect(200, 150, 10, 10)  # back to middle of the screen
+#         delay = 0  # move right away
+        
+    if delay <= 0:
+        mybox.move_ip(dx, dy)  # update position
+        delay = (mybox.width - 10) / 2  # number of pellets eaten so far
+        client.do_send({'msg_type': 'move',
+                        'state': [mybox.left, mybox.top, mybox.w, mybox.h]})
+        
+    p_index = mybox.collidelist(pellets)
+    if p_index != -1:  # ate a pellet: grow, and replace a pellet
+        client.do_send({'msg_type': 'eat',
+                        'pellet_index': p_index})
+        
+    
+    screen.fill((0, 0, 64))  # dark blue
+    [pygame.draw.rect(screen, (0, 191, 255), b) for b in borders]  # red
+    [pygame.draw.rect(screen, (255, 192, 203), p) for p in pellets]  # shrimp
+    [pygame.draw.rect(screen, (255, 0, 0), p) for p in other_players]  # red
+    pygame.draw.rect(screen, (0, 191, 255), mybox)  # Deep Sky Blue
     pygame.display.update()
