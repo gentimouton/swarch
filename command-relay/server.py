@@ -1,19 +1,21 @@
-from time import sleep
-from network import Listener, Handler, poll
 from random import randint
+from time import sleep
+
+from network import Listener, Handler, poll
+
 
 # gameplay 
-
 pellets = []
 for _ in range(4):  # 4 pellets in the game
     pellets.append([randint(0, 390), randint(0, 290), 5, 5])
-
-players = {}  # map id to rectangle
+    
+players = {}  # map name to rectangle
 player_id = 0
 def add_player():
+    global player_id
     player_id += 1
-    players[player_id] = [randint(0, 390), randint(0, 290), 10, 10]
-    return player_id 
+    players[str(player_id)] = [randint(0, 390), randint(0, 290), 10, 10]
+    return str(player_id) 
 
 # network 
 
@@ -51,7 +53,7 @@ class MyHandler(Handler):
         elif msgtype == 'eat':  # replace pellet, grow player, and forward new game state
             p_index = data['pellet_index']
             pellets[p_index] = [randint(0, 390), randint(0, 290), 5, 5]
-            w, h = players[self.myname][2] * 1.2, players[self.myname][3] * 1.2
+            w, h = players[self.myname][2] * 1.1, players[self.myname][3] * 1.1
             players[self.myname][2] = w
             players[self.myname][3] = h
             
@@ -67,8 +69,7 @@ class Server(Listener):
 
 server = Server(8888)
 
-
 # loop
 while 1:
     poll()
-    sleep(.05)  # 50ms, 20 frames per second
+    sleep(.05)  # seconds

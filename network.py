@@ -124,4 +124,4 @@ class Listener(asyncore.dispatcher):
     
     
 def poll():
-    asyncore.loop(count=1)
+    asyncore.loop(timeout=0, count=1) # return right away
