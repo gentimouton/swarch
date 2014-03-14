@@ -1,10 +1,12 @@
 from random import randint
+import time
 
 from pygame import Rect, init as pygame_init, event as pygame_event
 from pygame.display import set_mode, update as update_display
 from pygame.draw import rect as draw_rect
 from pygame.font import Font
-from pygame.locals import KEYDOWN, QUIT, K_ESCAPE, K_UP, K_DOWN, K_LEFT, K_RIGHT
+from pygame.locals import KEYDOWN, QUIT, K_ESCAPE, K_UP, K_DOWN, K_LEFT, K_RIGHT, \
+    K_SPACE
 from pygame.time import Clock
 
 from network import Handler, poll
@@ -14,11 +16,6 @@ myname, mybox = None, None  # myname is given by the server
 players = {}  # map player name to rectangle
 pellets = []
 
-class Player(Rect):
-    def __init__(self, l, t, w, h, name):
-        self.name = name
-        Rect.__init__(self, l, t, w, h)
-        
 class Client(Handler):
             
     def on_msg(self, data):
@@ -26,36 +23,40 @@ class Client(Handler):
         global myname, mybox
         
         if msgtype == 'welcome':
+            print '%s\ti am %s\t%s' % (str(time.time()), myname, str(data))
             for state in data['pellets']:  # create all pellets
                 left, top, width, height = tuple(state)
                 pellets.append(Rect(left, top, width, height))
             for pname, state in data['players'].items():  # create all players
                 left, top, width, height = tuple(state)
-                players[pname] = Player(left, top, width, height, pname)
+                players[pname] = Rect(left, top, width, height)
             myname, mybox = name, players[name] 
                 
         elif msgtype == 'join' and name != myname:  # ignore my join message
+            print '%s\ti am %s\t%s' % (str(time.time()), myname, str(data))
             left, top, width, height = tuple(data['state']) 
-            players[name] = Player(left, top, width, height, name)
+            players[name] = Rect(left, top, width, height)
             
         elif msgtype == 'leave':
             del players[name]
             
         elif msgtype == 'move' and name != myname:  # ignore my move messages
-            left, top, width, height = tuple(data['state'])
-            players[name] = Player(left, top, width, height, name)
+            if players[name]: # other player is not dead locally 
+                left, top, width, height = tuple(data['state'])
+                players[name] = Rect(left, top, width, height)
             
         elif msgtype == 'eat_pellet':
             players[name].size = tuple(data['size'])  
             pellets[data['pellet_index']] = data['new_pellet']
         
         elif msgtype == 'grow':
+            print '%s\ti am %s\t%s' % (str(time.time()), myname, str(data))
             players[name].size = tuple(data['size'])  
-            print '%s: %s should grow to %d' % (myname, name, data['size'][0])
-        
+            
         elif msgtype == 'die':
+            print '%s\ti am %s\t%s' % (str(time.time()), myname, str(data))
             left, top, width, height = tuple(data['state'])
-            players[name] = Player(left, top, width, height, name)
+            players[name] = Rect(left, top, width, height)
             if name == myname:
                 mybox = players[myname]
             
@@ -71,6 +72,7 @@ borders = [Rect(0, 0, 2, 300), Rect(0, 0, 400, 2),
            Rect(398, 0, 2, 300), Rect(0, 298, 400, 2)]
 dx, dy = 0, 1  # start direction: down
 delay = 0  # start moving right away 
+pause = False  # debug trick
 
 while True:
     
@@ -92,8 +94,13 @@ while True:
                 dx, dy = -1, 0
             elif key == K_RIGHT:
                 dx, dy = 1, 0
-    
+            elif key == K_SPACE:
+                pause = not pause  # debug trick
+                
     if not myname:  # do nothing until the server welcomed us
+        continue
+    
+    if pause:
         continue
     
     delay -= 4
@@ -114,16 +121,22 @@ while True:
        # check for collision with other players
         for name, hisbox in players.items():
             # collide with another player
-            if name != myname and hisbox and mybox.colliderect(hisbox): 
+            if name != myname and hisbox and mybox.colliderect(hisbox):
+                print '%s\ti am %s %s colliding with %s %s' % (str(time.time()),
+                                                                myname, str(mybox),
+                                                                name, str(hisbox)) 
                 if hisbox.width >= mybox.width:  # die if smaller
                     mybox = None
                     delay = 0
-                    client.do_send({'msg_type': 'die'})
+                    #client.do_send({'msg_type': 'die'})
+                    print '%s\ti am %s\t I die from %s' % (str(time.time()),
+                                                           myname, name)
                 else:  # tell server if bigger
                     players[name] = None  # None until server sends his new box
                     client.do_send({'msg_type': 'eat_player',
-                                    'eaten': [hisbox.w, hisbox.h]})
-                    print '%s: eat player %s, size %d' % (myname, name, hisbox.w)
+                                    'target': name})
+                    print '%s\t%s: eat player %s, size %d' % (str(time.time()),
+                                                              myname, name, hisbox.w)
     
     # check for collisions with pellets     
     if mybox:  # may have been Noned by colliding with another player        
