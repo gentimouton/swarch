@@ -125,7 +125,6 @@ while True:
             client.do_send({'msg_type': 'eat_pellet',
                             'pellet_index': pe_idx})
         
-    
     screen.fill((0, 0, 64))  # dark blue
     [draw_rect(screen, (0, 191, 255), b) for b in borders]  # red
     [draw_rect(screen, (255, 192, 203), p) for p in pellets]  # shrimp
