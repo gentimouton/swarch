@@ -50,7 +50,8 @@ class MyHandler(Handler):
                        'name': self.myname,
                        'state': data['state']})
             
-        elif msgtype == 'eat_pellet':  # replace pellet, grow player, and forward new game state
+        elif msgtype == 'eat_pellet':
+            # replace pellet, grow player, forward state
             p_index = data['pellet_index']
             pellets[p_index] = [randint(10, 390), randint(0, 290), 5, 5]
             w, h = players[self.myname][2] * 1.1, players[self.myname][3] * 1.1
@@ -67,7 +68,9 @@ class MyHandler(Handler):
             players[self.myname][3] += data['eaten'][1]
             broadcast({'msg_type': 'grow',
                        'name': self.myname,
-                       'size': [players[self.myname][2], players[self.myname][3]]})
+                       'size': [players[self.myname][2], 
+                                players[self.myname][3]]})
+            print 'eat player received, sent grow'
             
         elif msgtype == 'die':  # back to normal size, and place me randomly
             players[self.myname] = [randint(10, 380), randint(10, 280), 10, 10]
