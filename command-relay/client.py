@@ -39,12 +39,13 @@ class Client(Handler):
             del players[name]
             
         elif msgtype == 'move' and name != myname:  # ignore my move messages
-            if players[name]: # other player is not dead locally 
+            if players[name]:  # other player is not dead locally 
                 left, top, width, height = tuple(data['state'])
                 players[name] = Rect(left, top, width, height)
             
         elif msgtype == 'eat_pellet':
-            players[name].size = tuple(data['size'])  
+            if players[name]:  # None if I haven't receive his die msg yet
+                players[name].size = tuple(data['size'])
             pellets[data['pellet_index']] = data['new_pellet']
         
         elif msgtype == 'grow':
@@ -68,7 +69,6 @@ borders = [Rect(0, 0, 2, 300), Rect(0, 0, 400, 2),
            Rect(398, 0, 2, 300), Rect(0, 298, 400, 2)]
 dx, dy = 0, 1  # start direction: down
 delay = 0  # start moving right away 
-pause = False  # debug trick
 
 while True:
     
@@ -90,13 +90,8 @@ while True:
                 dx, dy = -1, 0
             elif key == K_RIGHT:
                 dx, dy = 1, 0
-            elif key == K_SPACE:
-                pause = not pause  # debug trick
                 
     if not myname:  # do nothing until the server welcomed us
-        continue
-    
-    if pause:
         continue
     
     delay -= 10

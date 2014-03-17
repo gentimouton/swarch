@@ -1,5 +1,7 @@
 """
-What are the race conditions?
+Known bug:
+- If a big box goes upwards slowly, and a small box below it goes upwards fast,
+then the collision is only detected on the small client, not on the big client.
  
 """
 from random import randint
@@ -59,7 +61,7 @@ class MyHandler(Handler):
         elif msgtype == 'eat_pellet':  # replace pellet and grow player
             p_index = data['pellet_index']
             pellets[p_index] = [randint(10, 390), randint(0, 290), 5, 5]
-            w, h = players[self.myname][2] * 1.1, players[self.myname][3] * 1.1
+            w, h = players[self.myname][2] + 2, players[self.myname][3] * + 2
             players[self.myname][2] = w
             players[self.myname][3] = h
             broadcast({'msg_type': 'eat_pellet',
