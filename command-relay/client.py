@@ -23,7 +23,6 @@ class Client(Handler):
         global myname, mybox
         
         if msgtype == 'welcome':
-            print '%s\ti am %s\t%s' % (str(time.time()), myname, str(data))
             for state in data['pellets']:  # create all pellets
                 left, top, width, height = tuple(state)
                 pellets.append(Rect(left, top, width, height))
@@ -33,7 +32,6 @@ class Client(Handler):
             myname, mybox = name, players[name] 
                 
         elif msgtype == 'join' and name != myname:  # ignore my join message
-            print '%s\ti am %s\t%s' % (str(time.time()), myname, str(data))
             left, top, width, height = tuple(data['state']) 
             players[name] = Rect(left, top, width, height)
             
@@ -50,11 +48,9 @@ class Client(Handler):
             pellets[data['pellet_index']] = data['new_pellet']
         
         elif msgtype == 'grow':
-            print '%s\ti am %s\t%s' % (str(time.time()), myname, str(data))
             players[name].size = tuple(data['size'])  
             
         elif msgtype == 'die':
-            print '%s\ti am %s\t%s' % (str(time.time()), myname, str(data))
             left, top, width, height = tuple(data['state'])
             players[name] = Rect(left, top, width, height)
             if name == myname:
@@ -103,7 +99,7 @@ while True:
     if pause:
         continue
     
-    delay -= 4
+    delay -= 10
     
     # check for game over
     if mybox and mybox.collidelist(borders) != -1:  
@@ -111,32 +107,25 @@ while True:
          mybox = None
          delay = 0  # move right away
 
-    # move and check for collisions with other players
+    # move
     if mybox: 
         if delay <= 0:  # time to move
             mybox.move_ip(dx, dy)  # update position
             delay = (mybox.width - 10) / 2  # number of pellets eaten so far
             client.do_send({'msg_type': 'move',
                             'state': [mybox.left, mybox.top, mybox.w, mybox.h]})
+            
        # check for collision with other players
         for name, hisbox in players.items():
-            # collide with another player
             if name != myname and hisbox and mybox.colliderect(hisbox):
-                print '%s\ti am %s %s colliding with %s %s' % (str(time.time()),
-                                                                myname, str(mybox),
-                                                                name, str(hisbox)) 
                 if hisbox.width >= mybox.width:  # die if smaller
                     mybox = None
                     delay = 0
-                    #client.do_send({'msg_type': 'die'})
-                    print '%s\ti am %s\t I die from %s' % (str(time.time()),
-                                                           myname, name)
-                else:  # tell server if bigger
+                    client.do_send({'msg_type': 'die'})
+                else:  # eat if bigger
                     players[name] = None  # None until server sends his new box
                     client.do_send({'msg_type': 'eat_player',
                                     'target': name})
-                    print '%s\t%s: eat player %s, size %d' % (str(time.time()),
-                                                              myname, name, hisbox.w)
     
     # check for collisions with pellets     
     if mybox:  # may have been Noned by colliding with another player        
@@ -151,17 +140,14 @@ while True:
     [draw_rect(screen, (255, 192, 203), p) for p in pellets]  # shrimp
     for name, hisbox in players.items():  # draw other players
         if name != myname and hisbox:
-            try:
-                if mybox and hisbox.width < mybox.width:
-                    color = 0, 255, 0  # smaller than me: green
-                else:
-                    color = 255, 0, 0  # bigger or same size: red
-                draw_rect(screen, color, hisbox)
-                # anti-aliased, black
-                text = font.render(str(hisbox.width), 1, (0, 0, 0))  
-                screen.blit(text, hisbox)
-            except AttributeError:
-                print hisbox
+            if mybox and hisbox.width < mybox.width:
+                color = 0, 255, 0  # smaller than me: green
+            else:
+                color = 255, 0, 0  # bigger or same size: red
+            draw_rect(screen, color, hisbox)
+            # anti-aliased, black
+            text = font.render(str(hisbox.width), 1, (0, 0, 0))  
+            screen.blit(text, hisbox)
     if mybox:  # draw me if I'm alive
         draw_rect(screen, (0, 191, 255), mybox)  # Deep Sky Blue
         text = font.render(str(mybox.width), 1, (0, 0, 0))  # anti-alias, black

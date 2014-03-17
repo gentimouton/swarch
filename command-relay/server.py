@@ -1,3 +1,7 @@
+"""
+What are the race conditions?
+ 
+"""
 from random import randint
 from time import sleep
 import time
@@ -8,14 +12,14 @@ from network import Listener, Handler, poll
 # gameplay 
 pellets = []
 for _ in range(4):  # 4 pellets in the game
-    pellets.append([390, 290, 5, 5])
+    pellets.append([randint(10, 390), randint(10, 290), 5, 5])
     
 players = {}  # map name to rectangle
 player_id = 0
 def add_player():
     global player_id
     player_id += 1
-    players[str(player_id)] = [10, 10, 10 * player_id, 10 * player_id]
+    players[str(player_id)] = [randint(0, 280), randint(0, 380), 10, 10]
     return str(player_id) 
 
 # network 
@@ -52,8 +56,7 @@ class MyHandler(Handler):
                        'name': self.myname,
                        'state': data['state']})
             
-        elif msgtype == 'eat_pellet':
-            # replace pellet, grow player, forward state
+        elif msgtype == 'eat_pellet':  # replace pellet and grow player
             p_index = data['pellet_index']
             pellets[p_index] = [randint(10, 390), randint(0, 290), 5, 5]
             w, h = players[self.myname][2] * 1.1, players[self.myname][3] * 1.1
@@ -65,24 +68,17 @@ class MyHandler(Handler):
                        'new_pellet': pellets[p_index],
                        'size': [w, h]})
     
-        # kill the small player, and grow the big by the size of the small
-        elif msgtype == 'eat_player':
+        elif msgtype == 'eat_player':  # grow the big by the size of the small
             small = players[data['target']]
             players[self.myname][2] += small[2]
             players[self.myname][3] += small[3]
-            players[data['target']] = [10, 10, 10, 10]
-            broadcast({'msg_type': 'die', 
-                       'name': data['target'],
-                       'state': players[data['target']]})
             broadcast({'msg_type': 'grow',
                        'name': self.myname,
                        'size': [players[self.myname][2],
                                 players[self.myname][3]]})
-            print '%s\teat player %s received, sent grow' % (time.time(), 
-                                                             self.myname)
             
-        elif msgtype == 'die':  # back to normal size, and place me randomly
-            players[self.myname] = [10, 10, 10, 10]
+        elif msgtype == 'die':  # back to normal size and place me randomly
+            players[self.myname] = [randint(0, 280), randint(0, 280), 10, 10]
             broadcast({'msg_type': 'die',
                        'name': self.myname,
                        'state': players[self.myname]})
