@@ -10,7 +10,7 @@ clock = pygame.time.Clock()
 
 borders = [pygame.Rect(0, 0, 2, 300), pygame.Rect(0, 0, 400, 2),
            pygame.Rect(398, 0, 2, 300), pygame.Rect(0, 298, 400, 2)]
-pellets = [pygame.Rect(randint(0, 390), randint(0, 290), 5, 5) for _ in range(4)]
+pellets = [pygame.Rect(randint(10, 380), randint(10, 280), 5, 5) for _ in range(4)]
 mybox = pygame.Rect(200, 150, 10, 10)  # start in middle of the screen
 dx, dy = 0, 1  # start direction: down
 delay = 0  # start moving right away 
