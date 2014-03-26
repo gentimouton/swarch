@@ -57,6 +57,7 @@ from pygame.locals import KEYDOWN, QUIT, K_ESCAPE, K_UP, K_DOWN, K_LEFT, K_RIGHT
 class Controller():
     def __init__(self, m):
         self.m = m
+        pygame.init()
     
     def poll(self):
         cmd = None
@@ -99,7 +100,7 @@ class View():
         [pygame.draw.rect(screen, (255, 192, 203), p) for p in pellets]  # pink
         [pygame.draw.rect(screen, (0, 191, 255), b) for b in borders]  # red
         pygame.display.update()
-
+    
 ################### LOOP #############################
 
 model = Model()
