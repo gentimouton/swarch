@@ -17,14 +17,14 @@ from pygame.locals import KEYDOWN, QUIT, K_ESCAPE, K_UP, K_DOWN, K_LEFT, K_RIGHT
 ############################################################
 
 def process_input(prev_direction):
-    keep_going, direction = True, prev_direction
+    game_status, direction = 1, prev_direction
     for event in pygame.event.get():
         if event.type == QUIT:
-            keep_going = False
+            game_status = 0 # 0 for game over, 1 for play
         if event.type == KEYDOWN:
             key = event.key
             if key == K_ESCAPE:
-                keep_going = False
+                game_status = 0
             elif key == K_UP:
                 direction = (0, -1)
             elif key == K_DOWN:
@@ -33,15 +33,15 @@ def process_input(prev_direction):
                 direction = (-1, 0)
             elif key == K_RIGHT:
                 direction = (1, 0)
-    return keep_going, direction
+    return game_status, direction
 
 ############################################################
 
 def draw_everything(screen, mybox, pellets, borders):
     screen.fill((0, 0, 64))  # dark blue
-    pygame.draw.rect(screen, (0, 191, 255), mybox)  # Deep Sky Blue
-    [pygame.draw.rect(screen, (255, 192, 203), p) for p in pellets]  # pink
     [pygame.draw.rect(screen, (0, 191, 255), b) for b in borders]  # red
+    [pygame.draw.rect(screen, (255, 192, 203), p) for p in pellets]  # pink
+    pygame.draw.rect(screen, (0, 191, 255), mybox)  # Deep Sky Blue
     pygame.display.update()
 
 ############################################################
@@ -61,7 +61,7 @@ def collide(box, boxes):
 ############################################################
 
 def move(box, direction): 
-    return box.move(direction[0], direction[1]) 
+    return box.move(direction[0], direction[1])  # move at 1px per frame
 
 ############################################################
 
@@ -80,7 +80,7 @@ def create_pellet(dims, offset):
                        randint(offset, h - offset), 5, 5)
 
 def create_pellets(dims, qty, offset=10): 
-    # the only Pygame-independent subroutine
+    # this is the only subroutine independent of Pygame
     return [create_pellet(dims, offset) for _ in range(qty)]
     
 def eat_and_replace_colliding_pellet(box, pellets, dims, offset=10):
@@ -105,10 +105,10 @@ pellets = create_pellets(dims, 4)
 mybox, direction = create_box(dims)
 
 # game loop
-keep_going = True
-while keep_going:
+game_status = 1  # 0 for game over, 1 for play
+while game_status:
 
-    keep_going, direction = process_input(direction)
+    game_status, direction = process_input(direction)
     
     mybox = move(mybox, direction)
     if collide(mybox, borders):
@@ -117,4 +117,4 @@ while keep_going:
     
     draw_everything(screen, mybox, pellets, borders)
     
-    clock.tick(50) # or sleep(.02) to have the loop Pygame-independent
+    clock.tick(50)  # or sleep(.02) to have the loop Pygame-independent
