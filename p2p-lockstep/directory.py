@@ -3,11 +3,12 @@ Directory: Give the list of connected peers when asked for it.
 Keep an up-to-date directory by receiving periodic heartbeats from the peers.
 """ 
 
-from network import Listener, Handler, poll
 from time import sleep
 
+from network import Listener, Handler, poll
 
-peers = {}  # map each handler (storing the IP) to the port on the remote peer
+
+peers = {}  # map peer name ('ip:port') to handler 
 
 class MyHandler(Handler):
     
@@ -15,14 +16,16 @@ class MyHandler(Handler):
         pass
         
     def on_close(self):
-        del peers[self]
+        del peers[self.name]
         
     def on_msg(self, data):
-        if 'join' in data:
-            peer_list = [[h.addr[0], port] for (h, port) in peers.items()] 
-            self.do_send({'directory': peer_list})  # (IP, port) list
-            peers[self] = data['join']
-            print '%s joined, listening on port %d' % (str(self.addr), data['join'])
+        if 'my_port' in data:
+            # name is 'remote IP:P2P port'
+            self.name = ':'.join([self.addr[0], str(data['my_port'])])  
+            self.do_send({'welcome': {'names': peers.keys(),
+                                      'your_name': self.name}})
+            peers[self.name] = self
+            print 'SRV: joined %s' % (self.name)
         
 
 class Server(Listener):
