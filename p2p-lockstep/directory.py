@@ -7,7 +7,7 @@ from network import Listener, Handler, poll
 from time import sleep
 
 
-peers = {}  # map each handler to the p2p listening port on the remote peer
+peers = {}  # map each handler (storing the IP) to the port on the remote peer
 
 class MyHandler(Handler):
     
