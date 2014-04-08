@@ -39,7 +39,7 @@ def process_input(prev_direction):
 
 def draw_everything(screen, mybox, pellets, borders):
     screen.fill((0, 0, 64))  # dark blue
-    [pygame.draw.rect(screen, (0, 191, 255), b) for b in borders]  # red
+    [pygame.draw.rect(screen, (0, 191, 255), b) for b in borders]  # # Deep Sky Blue
     [pygame.draw.rect(screen, (255, 192, 203), p) for p in pellets]  # pink
     pygame.draw.rect(screen, (0, 191, 255), mybox)  # Deep Sky Blue
     pygame.display.update()
