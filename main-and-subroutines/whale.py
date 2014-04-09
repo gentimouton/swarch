@@ -61,7 +61,7 @@ def collide(box, boxes):
 ############################################################
 
 def move(box, direction): 
-    return box.move(direction[0], direction[1])  # move at 1px per frame
+    return box.move(direction[0], direction[1]) 
 
 ############################################################
 
