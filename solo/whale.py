@@ -42,8 +42,8 @@ while True:
         mybox.move_ip(dx, dy)  # update position
         delay = (mybox.width - 10) / 2  # number of pellets eaten so far
     indices = mybox.collidelistall(pellets)
-    for p_index in indices: # ate a pellet: grow, and replace a pellet
-        pellets[p_index] = pygame.Rect(randint(50, 60), randint(50,60), 5, 5)
+    for p_index in indices:  # ate a pellet: grow, and replace a pellet
+        pellets[p_index] = pygame.Rect(randint(10, 380), randint(10, 280), 5, 5)
         mybox.size = mybox.width * 1.2, mybox.height * 1.2
 
     screen.fill((0, 0, 64))  # dark blue
