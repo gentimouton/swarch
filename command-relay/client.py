@@ -44,7 +44,7 @@ class Client(Handler):
                 players[name] = Rect(left, top, width, height)
             
         elif msgtype == 'eat_pellet':
-            if players[name]:  # None if I haven't receive his die msg yet
+            if players[name]:  # None if I haven't receive their die msg yet
                 players[name].size = tuple(data['size'])
             pellets[data['pellet_index']] = data['new_pellet']
         
@@ -111,14 +111,14 @@ while True:
                             'state': [mybox.left, mybox.top, mybox.w, mybox.h]})
             
        # check for collision with other players
-        for name, hisbox in players.items():
-            if name != myname and hisbox and mybox.colliderect(hisbox):
-                if hisbox.width >= mybox.width:  # die if smaller
+        for name, theirbox in players.items():
+            if name != myname and theirbox and mybox.colliderect(theirbox):
+                if theirbox.width >= mybox.width:  # die if smaller
                     mybox = None
                     delay = 0
                     client.do_send({'msg_type': 'die'})
                 else:  # eat if bigger
-                    players[name] = None  # None until server sends his new box
+                    players[name] = None  # None until server sends their new box
                     client.do_send({'msg_type': 'eat_player',
                                     'target': name})
     
@@ -133,16 +133,16 @@ while True:
     screen.fill((0, 0, 64))  # dark blue
     [draw_rect(screen, (0, 191, 255), b) for b in borders]  # deep sky blue 
     [draw_rect(screen, (255, 192, 203), p) for p in pellets]  # shrimp
-    for name, hisbox in players.items():  # draw other players
-        if name != myname and hisbox:
-            if mybox and hisbox.width < mybox.width:
+    for name, theirbox in players.items():  # draw other players
+        if name != myname and theirbox:
+            if mybox and theirbox.width < mybox.width:
                 color = 0, 255, 0  # smaller than me: green
             else:
                 color = 255, 0, 0  # bigger or same size: red
-            draw_rect(screen, color, hisbox)
+            draw_rect(screen, color, theirbox)
             # anti-aliased, black
-            text = font.render(str(hisbox.width), 1, (0, 0, 0))  
-            screen.blit(text, hisbox)
+            text = font.render(str(theirbox.width), 1, (0, 0, 0))  
+            screen.blit(text, theirbox)
     if mybox:  # draw me if I'm alive
         draw_rect(screen, (0, 191, 255), mybox)  # Deep Sky Blue
         text = font.render(str(mybox.width), 1, (0, 0, 0))  # anti-alias, black

@@ -39,10 +39,10 @@ class MyHandler(Handler):
         self.do_send({'msg_type': 'welcome',
                       'name': self.myname,
                       'players': players,
-                      'pellets': pellets})  # send him the whole game state
+                      'pellets': pellets})  # send them the whole game state
         broadcast({'msg_type': 'join',
                    'name': self.myname,
-                   'state': players[self.myname]})  # tell everyone about him
+                   'state': players[self.myname]})  # tell everyone about this new player
         
     def on_close(self):
         del players[self.myname]
