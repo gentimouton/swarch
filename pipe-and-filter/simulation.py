@@ -1,11 +1,14 @@
 # input: stream of commands 
 # output: game state
 import sys
+import json
 from random import randint
 from time import sleep
+from hmac import new
 
 dir_vectors = {'U': (0, -1), 'D': (0, 1), 'L': (-1, 0), 'R': (1, 0)}
 
+dims = 300, 400
 borders = [[0, 0, 2, 300], [0, 0, 400, 2], [398, 0, 2, 300], [0, 298, 400, 2]]
 pellets = [ [randint(10, 380), randint(10, 280), 5, 5] for _ in range(4) ]
 mybox = [200, 150, 10, 10]  # start in middle of the screen
@@ -39,7 +42,7 @@ def update_sim():
 while 1:
     new_dir = sys.stdin.readline().rstrip()  # without trailing \n
     
-    #new_dir = sys.stdin.read(1)
+    # new_dir = sys.stdin.read(1)
     # TODO: currently blocking for input read
     # use a Thread http://stackoverflow.com/a/4896288/856897
     # or select/poll http://repolinux.wordpress.com/2012/10/09/non-blocking-read-from-stdin-in-python/
@@ -47,7 +50,12 @@ while 1:
     
     if new_dir:
         mydir = dir_vectors[new_dir]
+        update_sim()
+        game = {'borders': borders, 'pellets': pellets, 'mybox': mybox} 
+        print json.dumps(game)
+        sys.stdout.flush()  # don't buffer output
+
     else:  # readline returns '' when I read EOF
         exit()
-    sleep(0.02) # in seconds
+    # sleep(0.02) # in seconds
         
