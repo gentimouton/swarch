@@ -1,10 +1,25 @@
-# Python in Windows console: https://docs.python.org/2/faq/windows.html
+"""
+input: stdin
+output: 'U', 'L', 'D', 'R' when the direction changed, and ''/EOF when stopped
 
+Run this in command line:
+python inputs.py | python simulation.py | python displaypygame.py 
+
+Push arrow keys to change direction, or ESC key to leave the game.
+Only the console listens for keyboard inputs, not the Pygame window. 
+
+To replace the Pygame display by the console:
+python inputs.py | python simulation.py | python displayconsole.py
+
+Need help running Python scripts in the Windows console? 
+Check https://docs.python.org/2/faq/windows.html
+"""
 import sys
 
 
 # Windows- and POSIX-compatible getch (read 1 char from console without \n)
-# from http://stackoverflow.com/a/21659588/856897
+# From http://stackoverflow.com/a/21659588/856897
+# Check also http://home.wlu.edu/~levys/software/kbhit.py
 def _find_getch():
     try:
         import termios
@@ -35,7 +50,7 @@ while 1:
     char = getch()  # BEWARE: CTRL-C won't work anymore!
     if char == '\033':  # ESC key
         exit()
-    if char in char_map:  # filter only the 5 chars
+    if char in char_map:  # only send the arrows
         cmd = char_map[char]
         print cmd  # Send to next filter. Equivalent to sys.stdout.write(X+'\n')
         sys.stdout.flush()  # don't buffer output
