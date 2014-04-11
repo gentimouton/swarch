@@ -39,10 +39,10 @@ class MyHandler(Handler):
         self.do_send({'msg_type': 'welcome',
                       'name': self.myname,
                       'players': players,
-                      'pellets': pellets})  # send him the whole game state
+                      'pellets': pellets})  # send them the whole game state
         broadcast({'msg_type': 'join',
                    'name': self.myname,
-                   'state': players[self.myname]})  # tell everyone about him
+                   'state': players[self.myname]})  # tell everyone about this new player
         
     def on_close(self):
         del players[self.myname]
@@ -61,7 +61,7 @@ class MyHandler(Handler):
         elif msgtype == 'eat_pellet':  # replace pellet and grow player
             p_index = data['pellet_index']
             pellets[p_index] = [randint(10, 390), randint(0, 290), 5, 5]
-            w, h = players[self.myname][2] + 2, players[self.myname][3] * + 2
+            w, h = players[self.myname][2] + 2, players[self.myname][3] + 2
             players[self.myname][2] = w
             players[self.myname][3] = h
             broadcast({'msg_type': 'eat_pellet',
