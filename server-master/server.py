@@ -5,6 +5,7 @@ Every frame, it receives player inputs from clients,
 executes these inputs to update the game state,
 and sends the whole game state to all the clients for display. 
 """
+from __future__ import division # So to make division be float instead of int
 from network import Listener, Handler, poll
 from random import randint
 from time import sleep
@@ -35,17 +36,19 @@ class Player:
     def revive(self):
         self.box = [randint(10, 380), randint(10, 280), 10, 10]
         self.dir = input_dir['down']  # original direction: downwards
+        self.speed = 2
     
     def change_dir(self, input):
         self.dir = input_dir[input]
         
     def move(self):
-        self.box[0] += self.dir[0] * 2
-        self.box[1] += self.dir[1] * 2
+        self.box[0] += self.dir[0] * self.speed
+        self.box[1] += self.dir[1] * self.speed
         
-    def grow(self, qty=2):
+    def grow_and_slow(self, qty=2):
         self.box[2] += qty
         self.box[3] += qty
+        self.speed -= self.speed/6
 
 def collide_boxes(box1, box2):
     x1, y1, w1, h1 = box1
@@ -101,17 +104,17 @@ while 1:
             if player.name < p.name and collide_boxes(player.box, p.box):
                 playerw, pw = player.box[2], p.box[2]  # widths
                 if playerw > pw:
-                    player.grow(pw)
+                    player.grow_and_slow(pw)
                     p.revive()
                 elif playerw < pw:
-                    p.grow(playerw)
+                    p.grow_and_slow(playerw)
                     player.revive()
                 else:  # they have same width: kill both 
                     p.revive()
                     player.revive()
         for index, pellet in enumerate(pellets):  # collision with pellets
             if collide_boxes(player.box, pellet):
-                player.grow()
+                player.grow_and_slow()
                 pellets[index] = [randint(10, 390), randint(10, 290), 5, 5]
         
     # Send to all players 1) the whole game state, and 2) their own name, 
