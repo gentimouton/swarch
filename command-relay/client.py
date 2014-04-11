@@ -112,7 +112,7 @@ while True:
             
        # check for collision with other players
         for name, theirbox in players.items():
-            if name != myname and theirbox and mybox.colliderect(theirbox):
+            if name != myname and mybox and theirbox and mybox.colliderect(theirbox):
                 if theirbox.width >= mybox.width:  # die if smaller
                     mybox = None
                     delay = 0
