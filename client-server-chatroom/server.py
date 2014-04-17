@@ -18,6 +18,6 @@ class MyHandler(Handler):
 port = 8888
 server = Listener(port, MyHandler)
 while 1:
-    poll(timeout=0.05)
+    poll(timeout=0.05) # in seconds
 
 
