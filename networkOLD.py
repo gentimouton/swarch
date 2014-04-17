@@ -18,8 +18,11 @@ from network import Listener, Handler, poll
 class MyHandler(Handler):
     def on_msg(self, data):
         self.do_send(data)
+        
+class EchoServer(Listener):
+    handlerClass = MyHandler
 
-server = Listener(8888, MyHandler)
+server = EchoServer(8888)
 while 1:
     poll()
 
@@ -97,20 +100,19 @@ class Handler(asynchat.async_chat):
     
 class Listener(asyncore.dispatcher):
     
-    def __init__(self, port, handler_class):
+    handlerClass = Handler # override this class by your own
+      
+    def __init__(self, port):
         asyncore.dispatcher.__init__(self)
-        self.handler_class = handler_class
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)  # TCP
         self.bind(('', port))
         self.listen(5)  # max 5 incoming connections at once (Windows' limit)
 
     def handle_accept(self):  # called on the passive side
-        accept_result = self.accept()
-        if accept_result: # None if connection blocked or aborted
-            sock, (host, port) = accept_result
-            h = self.handler_class(host, port, sock)
-            self.on_accept(h)
-            h.on_open()
+        sock, (host, port) = self.accept()
+        h = self.handlerClass(host, port, sock)
+        self.on_accept(h)
+        h.on_open()
     
     # API you can use
     def stop(self):

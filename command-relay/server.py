@@ -86,10 +86,7 @@ class MyHandler(Handler):
                        'state': players[self.myname]})
         
               
-class Server(Listener):
-    handlerClass = MyHandler
-
-server = Server(8888)
+server = Listener(8888, MyHandler)
 
 # loop
 while 1:

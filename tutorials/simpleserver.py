@@ -1,6 +1,6 @@
 from time import sleep
 
-from network import Listener, Handler, poll
+from nw import Listener, Handler, poll
 
 
 done = False
@@ -22,13 +22,9 @@ class MyHandler(Handler):
         global done
         done = True
     
-    
-class Serv(Listener):
-    handlerClass = MyHandler
-
 
 port = 8888
-server = Serv(port)
+server = Listener(port, MyHandler)
 while not done:
     poll()
     sleep(.1)

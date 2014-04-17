@@ -71,10 +71,8 @@ class MyHandler(Handler):
     def on_msg(self, data):
         event_queue.append((data['input'], self))
     
-class Server(Listener):
-    handlerClass = MyHandler
 
-server = Server(8888)
+server = Listener(8888, MyHandler)
 
 ######################### loop #######################
 
