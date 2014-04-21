@@ -52,6 +52,7 @@ class Model():
 
 ################### CONTROLLER #############################
 
+import pygame
 from pygame.locals import KEYDOWN, QUIT, K_ESCAPE, K_UP, K_DOWN, K_LEFT, K_RIGHT
 
 class Controller():
@@ -80,8 +81,6 @@ class Controller():
             self.m.do_cmd(cmd)
 
 ################### VIEW #############################
-
-import pygame
 
 class View():
     def __init__(self, m):
