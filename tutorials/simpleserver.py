@@ -1,6 +1,6 @@
 from time import sleep
 
-from nw import Listener, Handler, poll
+from network import Listener, Handler, poll
 
 
 done = False
