@@ -8,7 +8,7 @@ from time import sleep
 from network import Listener, Handler, poll
 
 
-peers = {}  # map peer name ('ip:port') to handler 
+peers = {}  # map peer 'ip:port' to handler 
 
 class MyHandler(Handler):
     
@@ -16,23 +16,18 @@ class MyHandler(Handler):
         pass
         
     def on_close(self):
-        del peers[self.name]
+        del peers[self.ip_port]
         
     def on_msg(self, data):
         if 'my_port' in data:
-            # name is 'remote IP:P2P port'
-            self.name = ':'.join([self.addr[0], str(data['my_port'])])  
-            self.do_send({'welcome': {'names': peers.keys(),
-                                      'your_name': self.name}})
-            peers[self.name] = self
-            print 'SRV: joined %s' % (self.name)
+            self.ip_port = ':'.join([self.addr[0], str(data['my_port'])])
+            self.do_send({'welcome': {'others_ip_port': peers.keys(),
+                                      'your_ip_port': self.ip_port}})
+            peers[self.ip_port] = self
+            print 'SRV: joined %s' % (self.ip_port)
         
 
-class Server(Listener):
-    handlerClass = MyHandler
-
-server = Server(8888)
+server = Listener(8888, MyHandler)
 
 while 1:
-    poll()
-    sleep(.05)
+    poll(timeout=.1) # seconds
