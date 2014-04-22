@@ -25,6 +25,5 @@ class Conn(Handler):
 host, port = 'localhost', 8888
 client = Conn(host, port)
 while not done:
-    poll()
-    sleep(.1)
+    poll(timeout=.1)
 client.do_close() # cleanup

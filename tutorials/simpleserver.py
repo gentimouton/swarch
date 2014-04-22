@@ -1,5 +1,3 @@
-from time import sleep
-
 from network import Listener, Handler, poll
 
 
@@ -26,6 +24,5 @@ class MyHandler(Handler):
 port = 8888
 server = Listener(port, MyHandler)
 while not done:
-    poll()
-    sleep(.1)
-server.stop() # cleanup
+    poll(timeout=.1)
+server.stop()  # cleanup
