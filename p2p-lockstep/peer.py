@@ -1,13 +1,15 @@
+from network import Handler, poll, Listener
 from random import randint, seed, choice
 from time import sleep
 
-from network import Handler, poll, Listener
 import pygame
 from pygame.locals import KEYDOWN, QUIT, K_ESCAPE, K_UP, K_DOWN, K_LEFT, K_RIGHT
 
+from getlanip import get_lan_ip
 
+
+DIRECTORY_HOST = 'localhost'
 listening_port = randint(20000, 30000)
-#seed(0)
 
 my_ip_port = ''  # will be my_ip:listening_port
 
@@ -86,13 +88,14 @@ class DirectoryClient(Handler):  # connect to the directory server
 
             
 # Establish connection with the directory server.
-dir_client = DirectoryClient('localhost', 8888)  # async connect
+dir_client = DirectoryClient(DIRECTORY_HOST, 8888)  # async connect
 while not dir_client.connected:
     poll(timeout=.1)  # seconds
     
 # Send the P2P port I will be listening to. (The dir server has my IP already)
 # Receive in response the list of (IP, port) of peers in the network.
-dir_client.do_send({'my_port': listening_port})
+my_ip = get_lan_ip()
+dir_client.do_send({'my_ip_port': my_ip + ':' + str(listening_port)})
 while peers is None:
     poll(timeout=.1)  # seconds
 print '%s knows about %d peers' % (my_ip_port, len(peers))
@@ -145,7 +148,7 @@ while 1:
             pellets[p_idx] = new_pellet
             broadcast({'eat': p_idx, 'new_pellet': new_pellet})
     
-    player_boxes = [player['box'] for player in peers.values() if player['box'] is not None] 
+    player_boxes = [player['box'] for player in peers.values() if player['box']] 
     for p in player_boxes:
         if collide_boxes(mybox, p):
             if mybox[2] > p[2]: # I am bigger

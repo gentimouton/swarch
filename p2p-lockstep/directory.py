@@ -19,8 +19,8 @@ class MyHandler(Handler):
         del peers[self.ip_port]
         
     def on_msg(self, data):
-        if 'my_port' in data:
-            self.ip_port = ':'.join([self.addr[0], str(data['my_port'])])
+        if 'my_ip_port' in data:
+            self.ip_port = data['my_ip_port']
             self.do_send({'welcome': {'others_ip_port': peers.keys(),
                                       'your_ip_port': self.ip_port}})
             peers[self.ip_port] = self
