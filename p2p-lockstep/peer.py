@@ -50,9 +50,9 @@ class PeerHandler(Handler):
             pellets = data['give_pellets']
             print '%s received pellets from %s' % (my_ip_port, peers[self]['ip_port'])
         elif 'move' in data:
-            box = data['move']
-            peers[self]['box'] = box
+            peers[self]['box'] = data['move']
         elif 'die' in data:
+            peers[self]['box'] = data['die']
             print '%s: %s died' % (my_ip_port, peers[self]['ip_port'])
         elif 'eat' in data:
             p_index = data['eat']
@@ -132,11 +132,12 @@ while 1:
     
     mybox[0] += dx
     mybox[1] += dy
+    broadcast({'move': mybox})
     
     for b in borders:
         if collide_boxes(mybox, b):
             mybox = [200, 150, 10, 10]
-            broadcast({'die': ''})
+            broadcast({'die': mybox})
             break # only send 'die' once
     
     pellets_copy = pellets[:]
@@ -156,9 +157,8 @@ while 1:
                 mybox[3] *= 1.2
             else: # I am smaller
                 mybox = [200, 150, 10, 10]
-                broadcast({'die': ''})
+                broadcast({'die': mybox})
 
-    broadcast({'move': mybox})
     
     screen.fill((0, 0, 64))  # dark blue
     [pygame.draw.rect(screen, (0, 191, 255), b) for b in borders]  
