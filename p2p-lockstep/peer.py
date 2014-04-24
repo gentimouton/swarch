@@ -14,9 +14,20 @@ my_ip_port = ''  # will be my_ip:listening_port
 peers = None  # map peer handler to Player. None when not received yet. 
 
 borders = [[0, 0, 2, 300], [0, 0, 400, 2], [398, 0, 2, 300], [0, 298, 400, 2]]
-pellets = []  # created if I'm first peer, fetched otherwise
+pellets = []  # shared state: created if I'm first peer, fetched otherwise
 
+
+
+def broadcast(msg):
+    for handler in peers.keys():
+        handler.do_send(msg)
         
+def collide_boxes(box1, box2):
+    x1, y1, w1, h1 = box1
+    x2, y2, w2, h2 = box2
+    return x1 < x2 + w2 and y1 < y2 + h2 and x2 < x1 + w1 and y2 < y1 + h1
+    
+    
 #####################################################################
      
 class PeerHandler(Handler):
@@ -39,9 +50,12 @@ class PeerHandler(Handler):
         elif 'move' in data:
             box = data['move']
             peers[self]['box'] = box
+        elif 'die' in data:
+            print '%s: %s died' % (my_ip_port, peers[self]['ip_port'])
+        elif 'eat' in data:
+            p_index = data['eat']
+            pellets[p_index] = data['new_pellet']
             
-            
-        
             
         
 #####################################################################   
@@ -94,7 +108,7 @@ mybox = [200, 150, 10, 10]
 dx, dy = 0, 1  # start direction: down
 
 while 1:
-    clock.tick(10)
+    clock.tick(50)
     poll()  # network
     
     for event in pygame.event.get():  # inputs
@@ -115,8 +129,34 @@ while 1:
     
     mybox[0] += dx
     mybox[1] += dy
-    for handler in peers.keys():
-        handler.do_send({'move': mybox})
+    
+    for b in borders:
+        if collide_boxes(mybox, b):
+            mybox = [200, 150, 10, 10]
+            broadcast({'die': ''})
+            break # only send 'die' once
+    
+    pellets_copy = pellets[:]
+    for p_idx, p in enumerate(pellets_copy):
+        if collide_boxes(mybox, p):
+            mybox[2] *= 1.2
+            mybox[3] *= 1.2
+            new_pellet = [randint(10, 390), randint(10, 290), 5, 5]
+            pellets[p_idx] = new_pellet
+            broadcast({'eat': p_idx, 'new_pellet': new_pellet})
+    
+    player_boxes = [player['box'] for player in peers.values() if player['box'] is not None] 
+    for p in player_boxes:
+        if collide_boxes(mybox, p):
+            if mybox[2] > p[2]: # I am bigger
+                mybox[2] *= 1.2
+                mybox[3] *= 1.2
+            else: # I am smaller
+                mybox = [200, 150, 10, 10]
+                broadcast({'die': ''})
+
+    broadcast({'move': mybox})
+    
     screen.fill((0, 0, 64))  # dark blue
     [pygame.draw.rect(screen, (0, 191, 255), b) for b in borders]  
     [pygame.draw.rect(screen, (255, 192, 203), p) for p in pellets]  
