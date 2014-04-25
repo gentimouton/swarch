@@ -47,6 +47,7 @@ client.do_close()
 import asynchat
 import asyncore
 import json
+import os
 import socket
 
 
@@ -106,7 +107,7 @@ class Listener(asyncore.dispatcher):
 
     def handle_accept(self):  # called on the passive side
         accept_result = self.accept()
-        if accept_result: # None if connection blocked or aborted
+        if accept_result:  # None if connection blocked or aborted
             sock, (host, port) = accept_result
             h = self.handler_class(host, port, sock)
             self.on_accept(h)
@@ -122,4 +123,33 @@ class Listener(asyncore.dispatcher):
     
     
 def poll(timeout=0):
-    asyncore.loop(timeout=timeout, count=1) # return right away
+    asyncore.loop(timeout=timeout, count=1)  # return right away
+
+
+def get_my_ip():
+    """ Get my network interface's IP, not localhost's IP.
+    From http://stackoverflow.com/a/1947766/856897
+    """
+    ip = socket.gethostbyname(socket.gethostname())
+    # Some versions of Ubuntu may return 127.0.0.1
+    if os.name != "nt" and ip.startswith("127."):
+        import fcntl  # not available on Windows
+        import struct
+        interfaces = ["eth0", "eth1", "eth2", "wlan0",
+                      "wlan1", "wifi0", "ath0", "ath1", "ppp0"]
+        for ifname in interfaces:
+            try:
+                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                ip = socket.inet_ntoa(fcntl.ioctl(s.fileno(),
+                                                  0x8915,  # SIOCGIFADDR
+                                                  struct.pack('256s', ifname[:15])
+                                                  )[20:24])
+                break;
+            except IOError:
+                pass
+    return ip
+
+
+                
+if __name__ == '__main__':
+    print get_my_ip()

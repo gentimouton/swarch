@@ -5,7 +5,7 @@ from time import sleep
 import pygame
 from pygame.locals import KEYDOWN, QUIT, K_ESCAPE, K_UP, K_DOWN, K_LEFT, K_RIGHT
 
-from getlanip import get_lan_ip
+from network import get_my_ip
 
 
 DIRECTORY_HOST = 'localhost'
@@ -17,6 +17,8 @@ peers = None  # map peer handler to Player. None when not received yet.
 
 borders = [[0, 0, 2, 300], [0, 0, 400, 2], [398, 0, 2, 300], [0, 298, 400, 2]]
 pellets = []  # shared state: created if I'm first peer, fetched otherwise
+mybox = [200, 150, 10, 10]
+dx, dy = 0, 1  # start direction: down
 
 
 
@@ -38,7 +40,7 @@ class PeerHandler(Handler):
         del peers[self]
         
     def on_msg(self, data):
-        global pellets
+        global pellets, mybox
         if 'join' in data:
             ip_port = data['join']
             peers[self] = {'ip_port': ip_port, 'box': None}
@@ -53,10 +55,13 @@ class PeerHandler(Handler):
             peers[self]['box'] = data['move']
         elif 'die' in data:
             peers[self]['box'] = data['die']
-            print '%s: %s died' % (my_ip_port, peers[self]['ip_port'])
         elif 'eat' in data:
             p_index = data['eat']
             pellets[p_index] = data['new_pellet']
+        elif 'collide_with':
+            other_ip_port = data['collide_with']
+            if other_ip_port == my_ip_port:
+                mybox = [200, 150, 10, 10]
             
             
         
@@ -94,7 +99,7 @@ while not dir_client.connected:
     
 # Send the P2P port I will be listening to. (The dir server has my IP already)
 # Receive in response the list of (IP, port) of peers in the network.
-my_ip = get_lan_ip()
+my_ip = get_my_ip()
 dir_client.do_send({'my_ip_port': my_ip + ':' + str(listening_port)})
 while peers is None:
     poll(timeout=.1)  # seconds
@@ -107,8 +112,6 @@ listener = Listener(listening_port, PeerHandler)
 pygame.init()
 screen = pygame.display.set_mode((400, 300))
 clock = pygame.time.Clock()
-mybox = [200, 150, 10, 10]
-dx, dy = 0, 1  # start direction: down
 
 while 1:
     clock.tick(50)
@@ -132,7 +135,6 @@ while 1:
     
     mybox[0] += dx
     mybox[1] += dy
-    broadcast({'move': mybox})
     
     for b in borders:
         if collide_boxes(mybox, b):
@@ -149,19 +151,20 @@ while 1:
             pellets[p_idx] = new_pellet
             broadcast({'eat': p_idx, 'new_pellet': new_pellet})
     
-    player_boxes = [player['box'] for player in peers.values() if player['box']] 
-    for p in player_boxes:
-        if collide_boxes(mybox, p):
-            if mybox[2] > p[2]: # I am bigger
+    for p in peers.values():
+        b = p['box'] 
+        if b and collide_boxes(mybox, b):
+            if mybox[2] > b[2]: # I am bigger
                 mybox[2] *= 1.2
                 mybox[3] *= 1.2
-            else: # I am smaller
+                broadcast({'collide_with': p['ip_port']})
+            elif mybox[2] == b[2] and my_ip_port > p['ip_port']:
                 mybox = [200, 150, 10, 10]
-                broadcast({'die': mybox})
-
-    
+                broadcast({'collide_with': p['ip_port']})
+                
+    broadcast({'move': mybox})
     screen.fill((0, 0, 64))  # dark blue
-    [pygame.draw.rect(screen, (0, 191, 255), b) for b in borders]  
+    [pygame.draw.rect(screen, (0, 191, 255), b) for b in borders]
     [pygame.draw.rect(screen, (255, 192, 203), p) for p in pellets]  
     [pygame.draw.rect(screen, (255, 0, 0), p['box']) for p in peers.values() if p['box']]
     pygame.draw.rect(screen, (0, 191, 255), mybox) 
