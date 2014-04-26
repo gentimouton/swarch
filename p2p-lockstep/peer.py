@@ -1,6 +1,5 @@
 from network import Handler, poll, Listener
-from random import randint, seed, choice
-from time import sleep
+from random import randint, choice
 
 import pygame
 from pygame.locals import KEYDOWN, QUIT, K_ESCAPE, K_UP, K_DOWN, K_LEFT, K_RIGHT
@@ -9,21 +8,140 @@ from network import get_my_ip
 
 
 DIRECTORY_HOST = 'localhost'
-listening_port = randint(20000, 30000)
+my_port = randint(20000, 30000)
+my_ip_port = get_my_ip() + ':' + str(my_port)
 
-my_ip_port = ''  # will be my_ip:listening_port
-
-peers = None  # map peer handler to Player. None when not received yet. 
+directory_received = False
+peers = set()  # collection of Peer
 
 borders = [[0, 0, 2, 300], [0, 0, 400, 2], [398, 0, 2, 300], [0, 298, 400, 2]]
 pellets = []  # shared state: created if I'm first peer, fetched otherwise
-mybox = [200, 150, 10, 10]
+
+mybox = None
+def place_my_box():
+    global mybox
+    mybox = [200, 150, 10, 10]
+place_my_box()
+
 dx, dy = 0, 1  # start direction: down
 
 
 
+    
+#####################################################################
+     
+class Peer(Handler):
+    """ P2P connection handler. Also store the box of the remote player.    
+    """
+    
+    def __init__(self, host, port, sock=None):
+        self.ip_port = None # set when that player sends a 'join' message
+        self.box = None # updated when that player moves
+        Handler.__init__(self, host, port, sock=sock)
+        
+        
+    def on_close(self):
+        peers.remove(self)
+        
+        
+    def on_msg(self, data):
+        mtype = data['mtype']
+        
+        if mtype == 'join': # remote peer joined the game
+            peers.add(self)
+            self.ip_port = data['ip_port']
+
+        elif mtype == 'pellet_request': # peer asked for list of pellets
+            self.do_send({'mtype': 'pellet_response', 
+                          'pellets': pellets})
+            
+        elif mtype == 'pellet_response': # peer sent list of pellets
+            pellets[:] = data['pellets']
+            
+        elif mtype == 'position':
+            self.box = data['box']
+            
+        elif mtype == 'death':
+            self.box = data['newbox']
+            
+        elif mtype == 'eat_pellet':
+            pellets[data['pellet_index']] = data['new_pellet']
+            
+        elif mtype == 'collide_with': # peer collided with someone
+            if data['ip_port'] == my_ip_port: # peer collided with me
+                place_my_box() # TODO: send death message too?
+            
+            
+        
+#####################################################################   
+
+def connect_to_peers(ip_ports):
+    for ip_port in ip_ports:
+        ip, port = str(ip_port).split(':')
+        peer = Peer(ip, int(port))
+        peers.add(peer)
+        peer.ip_port = ip_port
+        peer.do_send({'mtype': 'join', 
+                      'ip_port': my_ip_port})
+        print 'Connected to %s.' % ip_port  
+
+def fetch_pellets():
+    handler = choice(list(peers))
+    handler.do_send({'mtype': 'pellet_request'})
+    
+def create_pellets():
+    global pellets
+    pellets = [[randint(10, 390), randint(10, 290), 5, 5] for _ in range(4)]
+    
+    
+class DirectoryClient(Handler):  # connect to the directory server
+    
+    def __init__(self, host, port):
+        self.directory_received = False
+        Handler.__init__(self, host, port)
+        
+    def on_msg(self, data):
+        mtype = data['mtype']  
+        if mtype == 'welcome':
+            # receive peer directory
+            self.directory_received = True
+            # connect to the peers
+            others_ip_port = data['others_ip_port']
+            connect_to_peers(others_ip_port)
+            # create pellets if I'm the only peer, fetch them otherwise
+            if others_ip_port: # other peers have pellets data
+                fetch_pellets()
+            else:
+                create_pellets()
+
+
+#####################################################################
+
+# Establish connection with the directory server.
+dir_client = DirectoryClient(DIRECTORY_HOST, 8888)  # async connect
+while not dir_client.connected:
+    poll(timeout=.1)  # seconds
+print 'Connected to the directory server.'
+
+# Send the IP and port I will be listening to.
+# Receive in response the list of (IP, port) of peers in the network.
+dir_client.do_send({'mtype': 'join_dir', 
+                    'ip_port': my_ip_port})
+while not dir_client.directory_received:
+    poll(timeout=.1)  # seconds
+print 'Retrieved a directory of %d peers.' % len(peers)
+
+# Listen to incoming P2P connections from future peers.
+p2p_listener = Listener(my_port, Peer)
+
+
+pygame.init()
+screen = pygame.display.set_mode((400, 300))
+clock = pygame.time.Clock()
+
+
 def broadcast(msg):
-    for handler in peers.keys():
+    for handler in peers:
         handler.do_send(msg)
         
 def collide_boxes(box1, box2):
@@ -32,87 +150,6 @@ def collide_boxes(box1, box2):
     return x1 < x2 + w2 and y1 < y2 + h2 and x2 < x1 + w1 and y2 < y1 + h1
     
     
-#####################################################################
-     
-class PeerHandler(Handler):
-        
-    def on_close(self):
-        del peers[self]
-        
-    def on_msg(self, data):
-        global pellets, mybox
-        if 'join' in data:
-            ip_port = data['join']
-            peers[self] = {'ip_port': ip_port, 'box': None}
-            print '%s: connection from %s' % (my_ip_port, ip_port)
-        elif 'get_pellets' in data:
-            self.do_send({'give_pellets': pellets})
-            print '%s: gave pellets to %s' % (my_ip_port, peers[self]['ip_port'])
-        elif 'give_pellets' in data:
-            pellets = data['give_pellets']
-            print '%s received pellets from %s' % (my_ip_port, peers[self]['ip_port'])
-        elif 'move' in data:
-            peers[self]['box'] = data['move']
-        elif 'die' in data:
-            peers[self]['box'] = data['die']
-        elif 'eat' in data:
-            p_index = data['eat']
-            pellets[p_index] = data['new_pellet']
-        elif 'collide_with':
-            other_ip_port = data['collide_with']
-            if other_ip_port == my_ip_port:
-                mybox = [200, 150, 10, 10]
-            
-            
-        
-#####################################################################   
-
-class DirectoryClient(Handler):  # connect to the directory server
-    
-    def on_msg(self, data):  
-        if 'welcome' in data:
-            # receive peer directory: list of [IP, port]
-            # then connect to all those peers
-            global peers, my_ip_port
-            peers = {}
-            my_ip_port = data['welcome']['your_ip_port']
-            others_ip_port = data['welcome']['others_ip_port']
-            for ip_port in others_ip_port:
-                ip, port = str(ip_port).split(':')
-                ph = PeerHandler(ip, int(port))
-                peers[ph] = {'ip_port': ip_port, 'box': None} # ip:port, box 
-                ph.do_send({'join': my_ip_port})
-                print '%s connected to %s' % (my_ip_port, ip_port)    
-            # create pellets if I'm first peer, fetch them otherwise
-            if others_ip_port:
-                handler = choice(peers.keys())
-                handler.do_send({'get_pellets': ''})
-            else:
-                global pellets
-                pellets = [[randint(10, 390), randint(10, 290), 5, 5] for _ in range(4)]
-
-            
-# Establish connection with the directory server.
-dir_client = DirectoryClient(DIRECTORY_HOST, 8888)  # async connect
-while not dir_client.connected:
-    poll(timeout=.1)  # seconds
-    
-# Send the P2P port I will be listening to. (The dir server has my IP already)
-# Receive in response the list of (IP, port) of peers in the network.
-my_ip = get_my_ip()
-dir_client.do_send({'my_ip_port': my_ip + ':' + str(listening_port)})
-while peers is None:
-    poll(timeout=.1)  # seconds
-print '%s knows about %d peers' % (my_ip_port, len(peers))
-
-# Listen to incoming P2P connections from future peers.
-listener = Listener(listening_port, PeerHandler)
-
-
-pygame.init()
-screen = pygame.display.set_mode((400, 300))
-clock = pygame.time.Clock()
-
 while 1:
     clock.tick(50)
     poll()  # network
@@ -138,9 +175,10 @@ while 1:
     
     for b in borders:
         if collide_boxes(mybox, b):
-            mybox = [200, 150, 10, 10]
-            broadcast({'die': mybox})
-            break # only send 'die' once
+            place_my_box()
+            broadcast({'mtype': 'death', 
+                       'newbox': mybox})
+            break  # only send 'die' once
     
     pellets_copy = pellets[:]
     for p_idx, p in enumerate(pellets_copy):
@@ -149,24 +187,28 @@ while 1:
             mybox[3] *= 1.2
             new_pellet = [randint(10, 390), randint(10, 290), 5, 5]
             pellets[p_idx] = new_pellet
-            broadcast({'eat': p_idx, 'new_pellet': new_pellet})
+            broadcast({'mtype': 'eat_pellet', 
+                       'pellet_index': p_idx, 
+                       'new_pellet': new_pellet})
     
-    for p in peers.values():
-        b = p['box'] 
+    for p in peers:
+        b = p.box
         if b and collide_boxes(mybox, b):
-            if mybox[2] > b[2]: # I am bigger
+            if mybox[2] > b[2]:  # I am bigger
                 mybox[2] *= 1.2
                 mybox[3] *= 1.2
-                broadcast({'collide_with': p['ip_port']})
-            elif mybox[2] == b[2] and my_ip_port > p['ip_port']:
-                mybox = [200, 150, 10, 10]
-                broadcast({'collide_with': p['ip_port']})
+                broadcast({'mtype': 'collide_with', 
+                           'ip_port': p.ip_port})
+            elif mybox[2] == b[2] and my_ip_port > p.ip_port:
+                place_my_box()
+                broadcast({'mtype': 'collide_with', 
+                           'ip_port': p.ip_port})
                 
-    broadcast({'move': mybox})
+    broadcast({'mtype': 'position', 'box': mybox})
     screen.fill((0, 0, 64))  # dark blue
     [pygame.draw.rect(screen, (0, 191, 255), b) for b in borders]
     [pygame.draw.rect(screen, (255, 192, 203), p) for p in pellets]  
-    [pygame.draw.rect(screen, (255, 0, 0), p['box']) for p in peers.values() if p['box']]
+    [pygame.draw.rect(screen, (255, 0, 0), p.box) for p in peers if p.box]
     pygame.draw.rect(screen, (0, 191, 255), mybox) 
     pygame.display.update()
     
