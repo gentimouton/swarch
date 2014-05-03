@@ -15,17 +15,16 @@ import time
 
 import pygame
 from pygame.draw import rect as draw_rect
-
+import zlib
 
 pygame.init()
 
 
 ##################### game logic #############
 # game state
-borders = [[0, 0, 2, 60], [0, 0, 80, 2], [78, 0, 2, 30], [0, 58, 80, 2]]
-pellets = [[randint(10, 70), randint(10, 50), 5, 5] for _ in range(4)]
+borders = [[0, 0, 2, 300], [0, 0, 400, 2], [398, 0, 2, 300], [0, 298, 400, 2]]
+pellets = [[randint(10, 390), randint(10, 290), 5, 5] for _ in range(4)]
 players = {}  # map a client handler to a player object 
-screen = pygame.Surface((80, 60))
 
 player_id = 0
 def generate_name():
@@ -44,7 +43,7 @@ class Player:
         self.revive()
 
     def revive(self):
-        self.box = [randint(10, 70), randint(10, 50), 10, 10]
+        self.box = [randint(10, 390), randint(10, 290), 10, 10]
         self.dir = input_dir['down']  # original direction: downwards
         self.speed = 2
     
@@ -122,18 +121,18 @@ def update_avatars():
         for index, pellet in enumerate(pellets):  # collision with pellets
             if collide_boxes(player.box, pellet):
                 player.grow_and_slow()
-                pellets[index] = [randint(10, 70), randint(10, 50), 5, 5]
+                pellets[index] = [randint(10, 390), randint(10, 290), 5, 5]
 
     
 def render():
     # render game state into a surfarray
+    screen = pygame.Surface((400, 300))
     screen.fill((0, 0, 64))  # dark blue
     [draw_rect(screen, (0, 191, 255), b) for b in borders]  # deep sky blue 
     [draw_rect(screen, (255, 192, 203), p) for p in pellets]  # shrimp
     for name, p in players.items():
         draw_rect(screen, (255, 0, 0), p.box)  # red
-    pg_array = pygame.surfarray.array3d(screen)  # serialize
-    return pg_array
+    return screen
 
    
 while 1:   
@@ -142,10 +141,10 @@ while 1:
     poll()
     apply_client_events()
     update_avatars()
-    pg_array = render()
-    msg = {'dtype': str(pg_array.dtype),
-           'b64array': b64encode(pg_array),
-           'shape': pg_array.shape}
+    
+    surface = render()
+    img_str = pygame.image.tostring(surface, 'RGB')
+    msg = b64encode(zlib.compress(img_str))
     [handler.do_send(msg) for handler in players.keys()]
-    print 'server frame: %3.0f ms' % ((time.time() - before) * 1000)
-    sleep(0.1)  # seconds
+
+    sleep(0.02)  # seconds
