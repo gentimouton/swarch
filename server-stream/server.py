@@ -5,17 +5,27 @@ Streaming server:
 - render game state into a buffer
 - send the buffer to the clients 
 """
-from __future__ import division # So to make division be float instead of int
+from __future__ import division  # So to make division be float instead of int
+
+from base64 import b64encode
 from network import Listener, Handler, poll
 from random import randint
 from time import sleep
+import time
+
+import pygame
+from pygame.draw import rect as draw_rect
+
+
+pygame.init()
 
 
 ##################### game logic #############
 # game state
-borders = [[0, 0, 2, 300], [0, 0, 400, 2], [398, 0, 2, 300], [0, 298, 400, 2]]
-pellets = [[randint(10, 390), randint(10, 290), 5, 5] for _ in range(4)]
+borders = [[0, 0, 2, 60], [0, 0, 80, 2], [78, 0, 2, 30], [0, 58, 80, 2]]
+pellets = [[randint(10, 70), randint(10, 50), 5, 5] for _ in range(4)]
 players = {}  # map a client handler to a player object 
+screen = pygame.Surface((80, 60))
 
 player_id = 0
 def generate_name():
@@ -34,7 +44,7 @@ class Player:
         self.revive()
 
     def revive(self):
-        self.box = [randint(10, 380), randint(10, 280), 10, 10]
+        self.box = [randint(10, 70), randint(10, 50), 10, 10]
         self.dir = input_dir['down']  # original direction: downwards
         self.speed = 2
     
@@ -48,7 +58,7 @@ class Player:
     def grow_and_slow(self, qty=2):
         self.box[2] += qty
         self.box[3] += qty
-        self.speed -= self.speed/6
+        self.speed -= self.speed / 6
 
 def collide_boxes(box1, box2):
     x1, y1, w1, h1 = box1
@@ -72,16 +82,13 @@ class MyHandler(Handler):
         event_queue.append((data['input'], self))
     
 
-server = Listener(8888, MyHandler)
+Listener(8888, MyHandler)
 
 ######################### loop #######################
 
-while 1:
-    
-    # enqueue the player events received by the client handlers
-    poll()
-    
+def apply_client_events():
     # apply events onto game state
+    global event_queue   
     for event, handler in event_queue: 
         if event == 'quit':
             del players[handler]
@@ -91,6 +98,8 @@ while 1:
             players[handler].change_dir(event)
     event_queue = []
     
+    
+def update_avatars():
     # move everyone and detect collisions
     for player in players.values():  
         player.move()
@@ -113,16 +122,30 @@ while 1:
         for index, pellet in enumerate(pellets):  # collision with pellets
             if collide_boxes(player.box, pellet):
                 player.grow_and_slow()
-                pellets[index] = [randint(10, 390), randint(10, 290), 5, 5]
-        
-    # Send to all players 1) the whole game state, and 2) their own name, 
-    # so each player can draw herself differently from the other players.
-    serialized_players = {p.name: p.box for p in players.values()}
-    for handler, player in players.items():
-        msg = {'borders': borders,
-               'pellets': pellets,
-               'myname': player.name,
-               'players': serialized_players}
-        handler.do_send(msg)
-        
-    sleep(1. / 20)  # seconds
+                pellets[index] = [randint(10, 70), randint(10, 50), 5, 5]
+
+    
+def render():
+    # render game state into a surfarray
+    screen.fill((0, 0, 64))  # dark blue
+    [draw_rect(screen, (0, 191, 255), b) for b in borders]  # deep sky blue 
+    [draw_rect(screen, (255, 192, 203), p) for p in pellets]  # shrimp
+    for name, p in players.items():
+        draw_rect(screen, (255, 0, 0), p.box)  # red
+    pg_array = pygame.surfarray.array3d(screen)  # serialize
+    return pg_array
+
+   
+while 1:   
+    # enqueue the player events received by the client handlers
+    before = time.time()
+    poll()
+    apply_client_events()
+    update_avatars()
+    pg_array = render()
+    msg = {'dtype': str(pg_array.dtype),
+           'b64array': b64encode(pg_array),
+           'shape': pg_array.shape}
+    [handler.do_send(msg) for handler in players.keys()]
+    print 'server frame: %3.0f ms' % ((time.time() - before) * 1000)
+    sleep(0.1)  # seconds

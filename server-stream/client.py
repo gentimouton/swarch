@@ -1,47 +1,58 @@
 """
 Thin client: 
 - send my inputs (if any) every tick
-- display the buffer received from the server every tick 
+- display the buffer received from the server  
+Pygame's surfarray relies on numpy. 
+numpy 64 bit MSI available at http://www.lfd.uci.edu/~gohlke/pythonlibs/#numpy
 """
+from base64 import b64decode
 from network import Handler, poll
+import time
 
+from numpy import dtype, frombuffer
 from pygame import Rect, init as init_pygame
 from pygame.display import set_mode, update as update_pygame_display
-from pygame.draw import rect as draw_rect
 from pygame.event import get as get_pygame_events
 from pygame.locals import KEYDOWN, QUIT, K_ESCAPE, K_UP, K_DOWN, K_LEFT, K_RIGHT
-from pygame.time import Clock
+from pygame.surfarray import make_surface
+import pygame
 
-
-borders = []
-pellets = []
-players = {}  # map player name to rectangle
-myname = None
-     
 init_pygame()
-screen = set_mode((400, 300))
-clock = Clock()
+screen = set_mode((80, 60))
 
-def make_rect(quad):  # make a pygame.Rect from a list of 4 integers
-    x, y, w, h = quad
-    return Rect(x, y, w, h)
-    
+
 class Client(Handler):
             
-    def on_msg(self, data):
-        global borders, pellets, players, myname
-        borders = [make_rect(b) for b in data['borders']]
-        pellets = [make_rect(p) for p in data['pellets']]
-        players = {name: make_rect(p) for name, p in data['players'].items()}
-        myname = data['myname']
+    def on_msg(self, msg):
+        # base64 codec snippet from http://stackoverflow.com/a/19271311/856897
+        # Encoding/Decoding surfarray to a list takes 100 ms. b64 is 10-20 ms. 
+
+        before = time.time()
+        
+        dt = dtype(msg['dtype'])
+        array = frombuffer(b64decode(str(msg['b64array'])), dt)
+        surfarray = array.reshape(msg['shape'])
+
+        print 'make array %3.0f ms' % ((time.time() - before) * 1000)
+        before = time.time()
+        
+        surface = make_surface(surfarray)
+        
+        print 'make surface %3.0f ms' % ((time.time() - before) * 1000)
+        before = time.time()
+        
+        screen.blit(surface, (0, 0, 400, 300))
+
+        print 'blit surface %3.0f ms' % ((time.time() - before) * 1000)
+        
         
 client = Client('localhost', 8888)  # connect asynchronously
 
 valid_inputs = {K_UP: 'up', K_DOWN: 'down', K_LEFT: 'left', K_RIGHT: 'right'}
 
 while 1:
-    
-    poll()  # push and pull network messages
+
+    poll()
 
     # send valid inputs to the server
     for event in get_pygame_events():  
@@ -53,18 +64,8 @@ while 1:
                 exit()
             elif key in valid_inputs:
                 msg = {'input': valid_inputs[key]}
-                client.do_send(msg)
-    
-    # draw everything
-    screen.fill((0, 0, 64))  # dark blue
-    [draw_rect(screen, (0, 191, 255), b) for b in borders]  # deep sky blue 
-    [draw_rect(screen, (255, 192, 203), p) for p in pellets]  # shrimp
-    for name, p in players.items():
-        if name != myname:
-            draw_rect(screen, (255, 0, 0), p)  # red
-    if myname:
-        draw_rect(screen, (0, 191, 255), players[myname])  # deep sky blue
+                client.do_send(msg)    
     
     update_pygame_display()
     
-    clock.tick(50)  # frames per second, independent of server frame rate
+    time.sleep(0.1)

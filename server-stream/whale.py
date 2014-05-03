@@ -77,6 +77,10 @@ while True:
     
     ######################################
     
+    # tolist + asarray take 100 ms 
+    #l = pg_array.tolist() # encode
+    #array = numpy.asarray(l) # decode
+    
     # base64 encoding takes 10-20ms
     # from http://stackoverflow.com/a/19271311/856897
     # encode
@@ -86,12 +90,9 @@ while True:
     arr = numpy.frombuffer(base64.b64decode(msg[1]), dtype)
     array = arr.reshape(msg[2])
 
-    # tolist + asarray take 100 ms 
-    #l = pg_array.tolist() # encode
-    #array = numpy.asarray(l) # decode
     
     ######################################
     print '%1.5f' % (time() - before)
-    screen.blit(pygame.surfarray.make_surface(array), (0, 0, 400, 300))
+    pygame.surfarray.blit_array(screen, array)
     
     pygame.display.update()
