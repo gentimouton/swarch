@@ -1,29 +1,32 @@
 """
 Streaming server:
 - process inputs received from clients
-- update game state every tick
-- render game state into a buffer
-- send the buffer to the clients 
+- update game state
+- render game state into a screenshot
+- send the screenshot to the clients 
 """
-from __future__ import division  # So to make division be float instead of int
+from __future__ import division  # division returns float instead of int
 
-from base64 import b64encode
+import base64
 from network import Listener, Handler, poll
 from random import randint
-from time import sleep
 import time
+import zlib
 
 import pygame
-from pygame.draw import rect as draw_rect
-import zlib
+
 
 pygame.init()
 
+WIDTH, HEIGHT = 400, 300 # pixels
+TICK_DURATION = 0.02 # seconds
 
 ##################### game logic #############
 # game state
-borders = [[0, 0, 2, 300], [0, 0, 400, 2], [398, 0, 2, 300], [0, 298, 400, 2]]
-pellets = [[randint(10, 390), randint(10, 290), 5, 5] for _ in range(4)]
+borders = [[0, 0, 2, HEIGHT], [0, 0, WIDTH, 2],
+           [WIDTH - 2, 0, 2, HEIGHT], [0, HEIGHT - 2, WIDTH, 2]]
+pellets = [[randint(10, WIDTH - 10), 
+            randint(10, HEIGHT - 10), 5, 5] for _ in range(4)]
 players = {}  # map a client handler to a player object 
 
 player_id = 0
@@ -43,7 +46,7 @@ class Player:
         self.revive()
 
     def revive(self):
-        self.box = [randint(10, 390), randint(10, 290), 10, 10]
+        self.box = [randint(10, WIDTH - 10), randint(10, HEIGHT - 10), 10, 10]
         self.dir = input_dir['down']  # original direction: downwards
         self.speed = 2
     
@@ -70,7 +73,12 @@ event_queue = []  # list of ('event', handler)
 # 'event' can be 'quit', 'join', 'up', 'down', 'left', 'right'
 
 class MyHandler(Handler):
-        
+    """ Send screenshots in base 64 + gzip, 
+    receive player inputs in JSON.
+    """
+    def encode(self, msg):
+        return base64.b64encode(zlib.compress(msg))
+            
     def on_open(self):
         event_queue.append(('join', self))
         
@@ -121,30 +129,34 @@ def update_avatars():
         for index, pellet in enumerate(pellets):  # collision with pellets
             if collide_boxes(player.box, pellet):
                 player.grow_and_slow()
-                pellets[index] = [randint(10, 390), randint(10, 290), 5, 5]
+                pellets[index] = [randint(10, WIDTH - 10),
+                                  randint(10, HEIGHT - 10), 5, 5]
 
     
 def render():
     # render game state into a surfarray
-    screen = pygame.Surface((400, 300))
+    screen = pygame.Surface((WIDTH, HEIGHT))
     screen.fill((0, 0, 64))  # dark blue
-    [draw_rect(screen, (0, 191, 255), b) for b in borders]  # deep sky blue 
-    [draw_rect(screen, (255, 192, 203), p) for p in pellets]  # shrimp
+    [pygame.draw.rect(screen, (0, 191, 255), b) for b in borders]  # deep sky blue 
+    [pygame.draw.rect(screen, (255, 192, 203), p) for p in pellets]  # shrimp
     for name, p in players.items():
-        draw_rect(screen, (255, 0, 0), p.box)  # red
+        pygame.draw.rect(screen, (255, 0, 0), p.box)  # red
     return screen
 
    
-while 1:   
+while 1:
+    loop_start = time.time()
+    
     # enqueue the player events received by the client handlers
-    before = time.time()
-    poll()
     apply_client_events()
     update_avatars()
     
+    # render and send screenshot
     surface = render()
-    img_str = pygame.image.tostring(surface, 'RGB')
-    msg = b64encode(zlib.compress(img_str))
+    msg = pygame.image.tostring(surface, 'RGB')
     [handler.do_send(msg) for handler in players.keys()]
+    
+    # poll until the tick is over
+    while time.time() - loop_start < TICK_DURATION:
+        poll(TICK_DURATION - (time.time() - loop_start))
 
-    sleep(0.02)  # seconds

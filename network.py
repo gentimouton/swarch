@@ -50,7 +50,6 @@ import json
 import os
 import socket
 
-
 class Handler(asynchat.async_chat):
     
     def __init__(self, host, port, sock=None):
@@ -67,7 +66,7 @@ class Handler(asynchat.async_chat):
         self._buffer.append(data)
 
     def found_terminator(self):
-        msg = json.loads(''.join(self._buffer))
+        msg = self.decode(''.join(self._buffer))
         self._buffer = []
         self.on_msg(msg)
     
@@ -80,10 +79,18 @@ class Handler(asynchat.async_chat):
         
     # API you can use
     def do_send(self, msg):
-        self.push(json.dumps(msg) + '\0')
+        self.push(self.encode(msg) + '\0')
         
     def do_close(self):
         self.handle_close()  # will call self.on_close
+    
+    def encode(self, msg):
+        # return base64.b64encode(zlib.compress(msg))
+        return json.dumps(msg)
+    
+    def decode(self, msg):
+        # return base64.b64decode(zlib.decompress(msg))
+        return json.loads(msg)
     
     # callbacks you should override
     def on_open(self):
