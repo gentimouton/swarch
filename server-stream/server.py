@@ -18,14 +18,14 @@ import pygame
 
 pygame.init()
 
-WIDTH, HEIGHT = 400, 300 # pixels
-TICK_DURATION = 0.02 # seconds
+WIDTH, HEIGHT = 400, 300  # pixels
+TICK_DURATION = 0.02  # seconds
 
 ##################### game logic #############
 # game state
 borders = [[0, 0, 2, HEIGHT], [0, 0, WIDTH, 2],
            [WIDTH - 2, 0, 2, HEIGHT], [0, HEIGHT - 2, WIDTH, 2]]
-pellets = [[randint(10, WIDTH - 10), 
+pellets = [[randint(10, WIDTH - 10),
             randint(10, HEIGHT - 10), 5, 5] for _ in range(4)]
 players = {}  # map a client handler to a player object 
 
@@ -133,14 +133,14 @@ def update_avatars():
                                   randint(10, HEIGHT - 10), 5, 5]
 
     
-def render():
-    # render game state into a surfarray
+def render(handler):
+    # render game state into a surface. This rendering varies for each player.
     screen = pygame.Surface((WIDTH, HEIGHT))
     screen.fill((0, 0, 64))  # dark blue
     [pygame.draw.rect(screen, (0, 191, 255), b) for b in borders]  # deep sky blue 
     [pygame.draw.rect(screen, (255, 192, 203), p) for p in pellets]  # shrimp
-    for name, p in players.items():
-        pygame.draw.rect(screen, (255, 0, 0), p.box)  # red
+    [pygame.draw.rect(screen, (255, 0, 0), p.box) for h, p in players.items() if h != handler]
+    pygame.draw.rect(screen, (0, 191, 255), players[handler].box)
     return screen
 
    
@@ -152,10 +152,11 @@ while 1:
     update_avatars()
     
     # render and send screenshot
-    surface = render()
-    msg = pygame.image.tostring(surface, 'RGB')
-    [handler.do_send(msg) for handler in players.keys()]
-    
+    for h in players.keys():
+        surface = render(h) 
+        msg = pygame.image.tostring(surface, 'RGB') 
+        h.do_send(msg)
+
     # poll until the tick is over
     while time.time() - loop_start < TICK_DURATION:
         poll(TICK_DURATION - (time.time() - loop_start))
