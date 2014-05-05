@@ -1,10 +1,9 @@
-from network import Handler, poll, Listener
+from network import Handler, poll, Listener, get_my_ip
 from random import randint, choice
 
 import pygame
 from pygame.locals import KEYDOWN, QUIT, K_ESCAPE, K_UP, K_DOWN, K_LEFT, K_RIGHT
 
-from network import get_my_ip
 
 
 DIRECTORY_HOST = 'localhost'
