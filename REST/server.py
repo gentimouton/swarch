@@ -1,4 +1,31 @@
 """
+REST constraints: 
+- client-server, 
+- layered, 
+- stateless interactions: client stores app state, server stores resource state,
+- uniform interface, 
+- caching (optional), 
+- code on demand (optional).
+
+See:
+http://stackoverflow.com/a/671132/856897
+http://roy.gbiv.com/talks/200804_REST_ApacheCon.pdf
+
+Uniform interface can be broken down into the following constraints:
+- Each resource (= information) has one name: its URI.
+- Resource-generic interaction semantics (same verbs work on all resources)
+- Manipulate resources through their representations.
+- Hypermedia as the engine of application state: need links between resources.
+
+I want to use JSON as a representation+links format.
+Even though there is no right way to link resources in JSON,
+I'm using Content-type: application/hal+json.
+http://stateless.co/hal_specification.html
+https://www.mnot.net/blog/2011/11/25/linking_in_json
+
+
+TODO: also provide XML or HTML representations (not just JSON).
+TODO: make a TCP version instead of HTTP
 
 """
 import BaseHTTPServer
@@ -6,7 +33,7 @@ import json
 import sqlite3
 
 
-HOST_NAME = 'localhost'  # 'localhost' lags: http://bugs.python.org/issue6085
+HOST_NAME = 'localhost'  
 PORT_NUMBER = 8888
 
 db_conn = sqlite3.connect('whale.sqlite3')
@@ -17,7 +44,7 @@ db_cursor.execute('''CREATE TABLE IF NOT EXISTS pellets
                 (id int, x real, y real, size real)''')
 db_conn.commit()
 
-# Borders are static. No need to store them in a database. 
+# Borders are static. No need to store them in a database. Cache them here.
 # Map resource to representation for the 4 borders.
 borders = {'/border/1': [0, 0, 2, 300],
            '/border/2': [0, 0, 400, 2],
@@ -38,7 +65,7 @@ class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         self.wfile.write(json.dumps(body))
     
     def do_HEAD(self):
-        # TODO: /borders never changes
+        # TODO: borders never change, pellets rarely, players often 
         pass
             
     def do_GET(self):
@@ -47,7 +74,7 @@ class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         headers = {"Content-type": "application/json"}
         if resource == '/':
             code = 200
-            msg = {'borders': borders.keys()}
+            msg = {'borders': [{'href': b} for b in borders.keys()]}
         elif resource in borders.keys():
             code = 200
             msg = borders[resource]

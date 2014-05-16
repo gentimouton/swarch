@@ -5,7 +5,7 @@ import httplib
 import json
 
 
-HOST_NAME = '127.0.0.1'
+HOST_NAME = '127.0.0.1'  # 'localhost' lags: http://bugs.python.org/issue6085
 PORT_NUMBER = 8888
 
 conn = httplib.HTTPConnection(HOST_NAME, PORT_NUMBER)
@@ -15,10 +15,13 @@ response = conn.getresponse()  # response.status, response.reason is 200, 'OK'
 data = json.loads(response.read())
 
 
-for uri in data['borders']:
-    conn.request('GET', uri)
+for border in data['borders']:
+    conn.request('GET', border['href'])
     response = conn.getresponse()
     data2 = json.loads(response.read())
 
+
 conn.close()
+
+
 
