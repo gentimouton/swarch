@@ -7,14 +7,11 @@ so all clients see the same game at the same time (consistency, no rollbacks).
 Cons: lag between player input and screen display (one round-trip).
 But the client can smooth the lag by interpolating the position of the boxes. 
 """
-from network import Handler, poll
-
-from pygame import Rect, init as init_pygame
-from pygame.display import set_mode, update as update_pygame_display
-from pygame.draw import rect as draw_rect
-from pygame.event import get as get_pygame_events
-from pygame.locals import KEYDOWN, QUIT, K_ESCAPE, K_UP, K_DOWN, K_LEFT, K_RIGHT
+from network import Handler, poll_for
 import time
+
+import pygame
+from pygame.locals import KEYDOWN, QUIT, K_ESCAPE, K_UP, K_DOWN, K_LEFT, K_RIGHT
 
 
 borders = []
@@ -22,13 +19,13 @@ pellets = []
 players = {}  # map player name to rectangle
 myname = None
      
-init_pygame()
-screen = set_mode((400, 300))
+pygame.display.init()
+screen = pygame.display.set_mode((400, 300))
 TICK_DURATION = 0.02  # seconds
 
 def make_rect(quad):  # make a pygame.Rect from a list of 4 integers
     x, y, w, h = quad
-    return Rect(x, y, w, h)
+    return pygame.Rect(x, y, w, h)
     
 class Client(Handler):
             
@@ -43,11 +40,9 @@ client = Client('localhost', 8888)  # connect asynchronously
 
 valid_inputs = {K_UP: 'up', K_DOWN: 'down', K_LEFT: 'left', K_RIGHT: 'right'}
 
-while 1:
-    loop_start = time.time()
-    
+def send_inputs():
     # send valid inputs to the server
-    for event in get_pygame_events():  
+    for event in pygame.event.get():  
         if event.type == QUIT:
             exit()
         if event.type == KEYDOWN:
@@ -57,21 +52,23 @@ while 1:
             elif key in valid_inputs:
                 msg = {'input': valid_inputs[key]}
                 client.do_send(msg)
+
+while 1:
+    loop_start = time.time()
+    
+    send_inputs()
     
     # draw everything
     screen.fill((0, 0, 64))  # dark blue
-    [draw_rect(screen, (0, 191, 255), b) for b in borders]  # deep sky blue 
-    [draw_rect(screen, (255, 192, 203), p) for p in pellets]  # shrimp
+    [pygame.draw.rect(screen, (0, 191, 255), b) for b in borders]  # deep sky blue 
+    [pygame.draw.rect(screen, (255, 192, 203), p) for p in pellets]  # shrimp
     for name, p in players.items():
         if name != myname:
-            draw_rect(screen, (255, 0, 0), p)  # red
+            pygame.draw.rect(screen, (255, 0, 0), p)  # red
     if myname:
-        draw_rect(screen, (0, 191, 255), players[myname])  # deep sky blue
+        pygame.draw.rect(screen, (0, 191, 255), players[myname])  # deep sky blue
     
-    # poll until tick is over
-    while time.time() - loop_start < TICK_DURATION:
-        # push and pull network messages
-        poll(TICK_DURATION - (time.time() - loop_start))
-        
-    update_pygame_display()
+    poll_for(TICK_DURATION - (time.time() - loop_start)) # poll until tick is over
+
+    pygame.display.update()
     
