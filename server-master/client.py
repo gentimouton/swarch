@@ -19,8 +19,7 @@ pellets = []
 players = {}  # map player name to rectangle
 myname = None
      
-pygame.display.init()
-screen = pygame.display.set_mode((400, 300))
+
 TICK_DURATION = 0.02  # seconds
 
 def make_rect(quad):  # make a pygame.Rect from a list of 4 integers
@@ -40,7 +39,7 @@ client = Client('localhost', 8888)  # connect asynchronously
 
 valid_inputs = {K_UP: 'up', K_DOWN: 'down', K_LEFT: 'left', K_RIGHT: 'right'}
 
-def send_inputs():
+def process_inputs():
     # send valid inputs to the server
     for event in pygame.event.get():  
         if event.type == QUIT:
@@ -53,12 +52,10 @@ def send_inputs():
                 msg = {'input': valid_inputs[key]}
                 client.do_send(msg)
 
-while 1:
-    loop_start = time.time()
-    
-    send_inputs()
-    
-    # draw everything
+pygame.display.init()
+screen = pygame.display.set_mode((400, 300))
+
+def draw_everything():
     screen.fill((0, 0, 64))  # dark blue
     [pygame.draw.rect(screen, (0, 191, 255), b) for b in borders]  # deep sky blue 
     [pygame.draw.rect(screen, (255, 192, 203), p) for p in pellets]  # shrimp
@@ -67,8 +64,10 @@ while 1:
             pygame.draw.rect(screen, (255, 0, 0), p)  # red
     if myname:
         pygame.draw.rect(screen, (0, 191, 255), players[myname])  # deep sky blue
-    
-    poll_for(TICK_DURATION - (time.time() - loop_start)) # poll until tick is over
-
     pygame.display.update()
-    
+
+while 1:
+    loop_start = time.time()
+    process_inputs()
+    draw_everything()
+    poll_for(TICK_DURATION - (time.time() - loop_start)) # poll until tick is over

@@ -10,6 +10,7 @@ from __future__ import division # So to make division be float instead of int
 from network import Listener, Handler, poll_for
 from random import randint
 import time
+import uuid
 
 
 ##################### game logic #############
@@ -19,21 +20,15 @@ borders = [[0, 0, 2, 300], [0, 0, 400, 2], [398, 0, 2, 300], [0, 298, 400, 2]]
 pellets = [[randint(10, 390), randint(10, 290), 5, 5] for _ in range(4)]
 players = {}  # map a client handler to a player object 
 
-
-player_id = 0
-def generate_name():
-    global player_id
-    player_id += 1
-    return str(player_id)
     
 # map inputs received from clients to directions
 input_dir = {'up': [0, -1], 'down': [0, 1],
              'left': [-1, 0], 'right': [1, 0]}
 
 class Player:
-    
+
     def __init__(self):
-        self.name = generate_name()
+        self.name = str(uuid.uuid4())
         self.revive()
 
     def revive(self):
