@@ -8,7 +8,7 @@ and sends the whole game state to all the clients for display.
 from __future__ import division # So to make division be float instead of int
 from network import Listener, Handler, poll
 from random import randint
-from time import sleep
+import time
 
 
 ##################### game logic #############
@@ -16,6 +16,7 @@ from time import sleep
 borders = [[0, 0, 2, 300], [0, 0, 400, 2], [398, 0, 2, 300], [0, 298, 400, 2]]
 pellets = [[randint(10, 390), randint(10, 290), 5, 5] for _ in range(4)]
 players = {}  # map a client handler to a player object 
+TICK_DURATION = 0.05  # seconds
 
 player_id = 0
 def generate_name():
@@ -77,9 +78,7 @@ server = Listener(8888, MyHandler)
 ######################### loop #######################
 
 while 1:
-    
-    # enqueue the player events received by the client handlers
-    poll()
+    loop_start = time.time()
     
     # apply events onto game state
     for event, handler in event_queue: 
@@ -116,7 +115,7 @@ while 1:
                 pellets[index] = [randint(10, 390), randint(10, 290), 5, 5]
         
     # Send to all players 1) the whole game state, and 2) their own name, 
-    # so each player can draw herself differently from the other players.
+    # so players can draw themselves differently from the other players.
     serialized_players = {p.name: p.box for p in players.values()}
     for handler, player in players.items():
         msg = {'borders': borders,
@@ -125,4 +124,9 @@ while 1:
                'players': serialized_players}
         handler.do_send(msg)
         
-    sleep(1. / 20)  # seconds
+    
+    # poll until tick is over
+    while time.time() - loop_start < TICK_DURATION:
+        # push and pull network messages
+        poll(TICK_DURATION - (time.time() - loop_start))
+        

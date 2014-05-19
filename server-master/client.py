@@ -14,7 +14,7 @@ from pygame.display import set_mode, update as update_pygame_display
 from pygame.draw import rect as draw_rect
 from pygame.event import get as get_pygame_events
 from pygame.locals import KEYDOWN, QUIT, K_ESCAPE, K_UP, K_DOWN, K_LEFT, K_RIGHT
-from pygame.time import Clock
+import time
 
 
 borders = []
@@ -24,7 +24,7 @@ myname = None
      
 init_pygame()
 screen = set_mode((400, 300))
-clock = Clock()
+TICK_DURATION = 0.02  # seconds
 
 def make_rect(quad):  # make a pygame.Rect from a list of 4 integers
     x, y, w, h = quad
@@ -44,9 +44,8 @@ client = Client('localhost', 8888)  # connect asynchronously
 valid_inputs = {K_UP: 'up', K_DOWN: 'down', K_LEFT: 'left', K_RIGHT: 'right'}
 
 while 1:
+    loop_start = time.time()
     
-    poll()  # push and pull network messages
-
     # send valid inputs to the server
     for event in get_pygame_events():  
         if event.type == QUIT:
@@ -69,6 +68,10 @@ while 1:
     if myname:
         draw_rect(screen, (0, 191, 255), players[myname])  # deep sky blue
     
+    # poll until tick is over
+    while time.time() - loop_start < TICK_DURATION:
+        # push and pull network messages
+        poll(TICK_DURATION - (time.time() - loop_start))
+        
     update_pygame_display()
     
-    clock.tick(50)  # frames per second, independent of server frame rate
