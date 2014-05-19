@@ -7,7 +7,7 @@ and sends the whole game state to all the clients for display.
 """
 from __future__ import division # So to make division be float instead of int
 
-from network import Listener, Handler, poll
+from network import Listener, Handler, poll_for
 from random import randint
 import time
 
