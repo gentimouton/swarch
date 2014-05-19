@@ -141,8 +141,4 @@ while 1:
     apply_events()
     update_simulation()
     broadcast_state()
-    # poll until tick is over
-    while time.time() - loop_start < TICK_DURATION:
-        # push and pull network messages
-        poll(TICK_DURATION - (time.time() - loop_start))
-        
+    poll_for(TICK_DURATION - (time.time() - loop_start)) # poll until tick is over
