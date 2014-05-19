@@ -49,6 +49,8 @@ import asyncore
 import json
 import os
 import socket
+import time
+
 
 class Handler(asynchat.async_chat):
     
@@ -131,6 +133,13 @@ class Listener(asyncore.dispatcher):
     
 def poll(timeout=0):
     asyncore.loop(timeout=timeout, count=1)  # return right away
+
+def poll_for(duration):  # in seconds
+    # poll once even if duration is negative
+    start = time.time()
+    poll()
+    while time.time() - start < duration:
+        poll(duration - (time.time() - start))
 
 
 def get_my_ip():
