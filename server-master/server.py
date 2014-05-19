@@ -97,7 +97,7 @@ while 1:
             if collide_boxes(player.box, border):
                 player.revive()
         for p in players.values():  # collision with other players
-             # only the player with lowest id of the pair detects the collision
+            # only the player with lowest id of the pair detects the collision
             if player.name < p.name and collide_boxes(player.box, p.box):
                 playerw, pw = player.box[2], p.box[2]  # widths
                 if playerw > pw:
