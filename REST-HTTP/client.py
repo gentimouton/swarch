@@ -1,5 +1,8 @@
 """ 
 Borders are static. Clients should cache them once they GET them.
+
+TODO: run 2 HTTP servers, on 8888 and 8889. 
+Highlight web server's replaceability. 
 """ 
 import httplib
 import json
