@@ -22,3 +22,44 @@ Similar works
 - 99 literary styles in Exercises in Style, Queneau
 - 207 interpretations and appearances of Catalan Numbers, Stanley, http://www-math.mit.edu/~rstan/ec/
 - Exercises in Programming Styles, Lopes
+
+
+Backlog
+----
+
+- p2p with lockstep
+- p2p with one pellet owner, others have copies: one "host"
+- p2p with rollback
+- spatial pubsub
+- RPC
+- SOA: game vs chat service?
+- operational transform (between N clients and 1 server)
+- reverse proxy to load-balance 
+- redirect asset requests to CDN (intermediaries are easy to add in REST)
+- stream assets vs fat client
+- plugin
+- blackboard
+- sense compute control (avionics)
+- replication of data vs computation, Paxos, virtual synchrony
+- CAP, NOSQL, ACID, BASE
+- SOA vs service bus vs central repository vs linked data 
+- grid vs cloud
+- CRUD (easy to add in RPC?)
+
+AI (make whale bots?)
+- sense plan act
+- subsumption
+- hFSM
+- robotic architectures
+
+Security
+- authentication
+- access control
+- injections
+- impersonation
+
+Messaging/MEP
+- fire and forget
+- asynchronous
+- request-response
+- context-free
