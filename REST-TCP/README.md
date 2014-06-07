@@ -27,3 +27,7 @@ See also
 http://stackoverflow.com/a/671132/856897
 http://roy.gbiv.com/talks/200804_REST_ApacheCon.pdf
 
+JSON is nice, but:
+- it is only a container format (like XML), not a media type with semantics,
+- as a format, it has no standard for links (yet). 
+https://www.mnot.net/blog/2011/11/25/linking_in_json
