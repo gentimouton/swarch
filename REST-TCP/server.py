@@ -36,25 +36,29 @@ class MyHandler(Handler):
                     'pellets': {'link': '/pellets'},
                     'players': {'link': '/players'}
                     }
-            response = {'type': 'app/game+json',
+            response = {'resource': resource,
+                        'type': 'app/game+json',
                         'representation': repr
                         }
         elif (method, resource) == ('GET', '/borders'):
             # borders are static, can be cached, no need to store them in DB
             repr = [ [0, 0, 2, 300], [0, 0, 400, 2],
                     [398, 0, 2, 300], [0, 298, 400, 2] ]
-            response = {'type': 'app/boxlist+json',
+            response = {'resource': resource,
+                        'type': 'app/boxlist+json',
                         'representation': repr
                         }
         elif (method, resource) == ('GET', '/pellets'):
             # pellets may change, fetch them from DB
             pellets = db_cur.execute('SELECT * FROM pellets').fetchall()
             repr = [ [p.x, p.y, p.size, p.size] for p in pellets]
-            response = {'type': 'app/boxlist+json',
+            response = {'resource': resource,
+                        'type': 'app/boxlist+json',
                         'representation': repr
                         }
         else:
-            response = {'type': 'text/plain',
+            response = {'resource': resource,
+                        'type': 'text/plain',
                         'representation': 'wrong resource or method.\nGo to /'
                         }
         
