@@ -64,6 +64,18 @@ class MyHandler(Handler):
                         'type': 'app/boxlist+json',
                         'representation': repr
                         }
+        elif (method, resource) == ('GET', '/players'):
+            # TODO: accept an argument {'name': '132456'}
+            # so clients can distinguish their avatar from other clients'
+            # TODO: how do I tell a client it can POST to /player/magic_hash(123456)?
+            
+            # players always change, fetch them from DB
+            players = db_cur.execute('SELECT * FROM players').fetchall()
+            repr = { p[0]: [p[1], p[2], p[3], p[3]] for p in players}
+            response = {'resource': resource,
+                        'type': 'app/boxdict+json',
+                        'representation': repr
+                        }
         else:
             response = {'resource': resource,
                         'type': 'text/plain',
