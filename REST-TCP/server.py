@@ -15,7 +15,11 @@ db_cur.execute('''
     ''')
 db_cur.execute('''
     CREATE TABLE IF NOT EXISTS pellets 
-    (id INT PRIMARY KEY, x REAL, y REAL, size REAL)
+    (x REAL, y REAL, size REAL)
+    ''')
+# TODO: only insert pellets when creating the table
+db_cur.execute('''
+    INSERT INTO pellets VALUES (100, 100, 5);
     ''')
 db_conn.commit()
      
@@ -51,7 +55,7 @@ class MyHandler(Handler):
         elif (method, resource) == ('GET', '/pellets'):
             # pellets may change, fetch them from DB
             pellets = db_cur.execute('SELECT * FROM pellets').fetchall()
-            repr = [ [p.x, p.y, p.size, p.size] for p in pellets]
+            repr = [ [p[0], p[1], p[2], p[2]] for p in pellets]
             response = {'resource': resource,
                         'type': 'app/boxlist+json',
                         'representation': repr
