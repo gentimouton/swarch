@@ -2,7 +2,7 @@ import json
 from network import Listener, Handler, poll
 import sqlite3
 import uuid
-
+from random import randint
 
 HOST_NAME = 'localhost'  
 PORT_NUMBER = 8888
@@ -11,16 +11,20 @@ db_conn = sqlite3.connect('whale.sqlite3')
 db_cur = db_conn.cursor()
 db_cur.execute('''
     CREATE TABLE IF NOT EXISTS players
-    (name TEXT PRIMARY KEY, x REAL, y REAL, size REAL)
+    (name TEXT PRIMARY KEY, x INT, y INT, size INT);
     ''')
 db_cur.execute('''
     CREATE TABLE IF NOT EXISTS pellets 
-    (x REAL, y REAL, size REAL)
+    (id INTEGER PRIMARY KEY, x INT, y INT, size INT);
     ''')
-# TODO: only insert pellets when creating the table
-db_cur.execute('''
-    INSERT INTO pellets VALUES (100, 100, 5);
-    ''')
+for pellet_id in range(4):
+    try:
+        db_cur.execute('''
+            INSERT OR ABORT INTO pellets 
+            VALUES (?, ?, ?, ?);
+            ''', (pellet_id, randint(10, 380), randint(10, 280), 5))
+    except sqlite3.IntegrityError: # primary key conflict: row already exists
+        pass
 db_conn.commit()
      
 
@@ -55,7 +59,7 @@ class MyHandler(Handler):
         elif (method, resource) == ('GET', '/pellets'):
             # pellets may change, fetch them from DB
             pellets = db_cur.execute('SELECT * FROM pellets').fetchall()
-            repr = [ [p[0], p[1], p[2], p[2]] for p in pellets]
+            repr = [ [p[1], p[2], p[3], p[3]] for p in pellets]
             response = {'resource': resource,
                         'type': 'app/boxlist+json',
                         'representation': repr
