@@ -1,6 +1,7 @@
 from collections import deque
 from network import Handler, poll, poll_for
 import time
+import uuid
 
 import pygame
 from pygame.locals import KEYDOWN, QUIT, K_ESCAPE, K_UP, K_DOWN, K_LEFT, K_RIGHT
@@ -8,18 +9,18 @@ from pygame.locals import KEYDOWN, QUIT, K_ESCAPE, K_UP, K_DOWN, K_LEFT, K_RIGHT
 ############ local game model ############
 class Game:
     def __init__(self):
-        self.myname = None
+        self.myname = str(uuid.uuid4())[:8]
         self.borders = []
         self.pellets = []
         self.players = {}
-    def set_myname(self, s):
-        self.myname = s
     def set_borders(self, box_list):
         self.borders = box_list
     def set_pellets(self, box_list):
         self.pellets = box_list
     def set_players(self, d):
         self.players = d
+    def get_mybox(self):
+        return self.players[self.myname]
 game = Game()
 
 ########### network #################
@@ -38,9 +39,6 @@ class Client(Handler):
     
     def _callback_game(self, mtype, repr):
         if mtype == 'app/game+json':
-            name = self._obtain(repr['name'], self._callback_name)
-            if name:
-                game.set_myname(name)
             borders = self._obtain(repr['borders'], self._callback_borders)
             if borders:
                 game.set_borders(borders)
@@ -50,10 +48,9 @@ class Client(Handler):
             players = self._obtain(repr['players'], self._callback_players)
             if players:
                 game.set_players(players)
-            
-    def _callback_name(self, mtype, repr):
-        if mtype == 'text/plain':
-            game.set_myname(repr)
+            if 'you' in repr:
+                pass  # TODO: register this URL for future POST
+
             
     def _callback_borders(self, mtype, repr):
         if mtype == 'app/boxlist+json':
@@ -68,11 +65,12 @@ class Client(Handler):
     def _callback_players(self, mtype, repr):
         if mtype == 'app/boxlist+json':
             # use enumerate to assign random player names to boxes
-            players = dict(enumerate(repr)) # {1: [1,2,3,4], 2: [5,6,7,8]}
+            players = dict(enumerate(repr))  # {1: [1,2,3,4], 2: [5,6,7,8]}
             game.set_players(players)
         elif mtype == 'app/boxdict+json':
-            # box names are provided
-            players = repr            
+            # player names are provided
+            players = repr
+            
 
     def _obtain(self, subdata, callback):
         if 'data' in subdata:
@@ -80,6 +78,15 @@ class Client(Handler):
         elif 'link' in subdata:
             self.enqueue_request('GET', subdata['link'], {}, callback)
             return None
+        elif 'form' in subdata:
+            fdata = subdata['form']
+            meth, url, arg_names = fdata['method'] , fdata['url'], fdata['args']
+            req_args = {}
+            if 'name' in arg_names:
+                req_args['name'] = game.myname
+            if 'box' in arg_names:
+                req_args['box'] = game.get_mybox()
+            self.enqueue_request(meth, url, req_args, callback)
     
     def _send_next_request(self):
         if self._pending_rsrc_req is None and self._request_queue:
@@ -97,22 +104,21 @@ class Client(Handler):
         self._send_next_request()
         
     def fetch_game_state(self):
-        if game.myname:
-            args = {'name': game.myname} # TODO: bad: out-of-band info
-            # how do I know that /game/1 accepts a name argument?
-            # need a hypermedia form instead
-        else:
-            args = {}
+        args = {'name': game.myname}  # TODO: bad: out-of-band info
+        # need a hypermedia form instead
         self.enqueue_request('GET', '/game/1', args, self._callback_game)
         while len(self._request_queue) > 0 or self._pending_rsrc_req is not None:
             poll(timeout=0.1)
-        
+    
+    def send_command(self, direction):
+         print 'should send command'  # TODO: send command every loop iteration
         
 client = Client('localhost', 8888)  # connect asynchronously
-while not client.connected: # poll until connected
+while not client.connected:  # poll until connected
     poll(timeout=0.1)
 
 ############## inputs ############
+# TODO: this mapping was obtained out of band
 valid_inputs = {K_UP: 'up', K_DOWN: 'down', K_LEFT: 'left', K_RIGHT: 'right'}
 def process_inputs():
     # send valid inputs to the server
@@ -124,8 +130,8 @@ def process_inputs():
             if key == K_ESCAPE:
                 exit()
             elif key in valid_inputs:
-                msg = {'input': valid_inputs[key]}
-                print 'TODO: client should send msg'
+                client.send_command(valid_inputs[key])
+                
 
 
 ############## graphics ############
@@ -150,7 +156,7 @@ TICK_DURATION = 0.02  # seconds
 work_durations = []
 while client.connected:
     start = time.time()
-    client.fetch_game_state() # blocking
+    client.fetch_game_state()  # blocking
     draw_everything()
     process_inputs()
     work_durations.append(time.time() - start)
@@ -158,4 +164,4 @@ while client.connected:
         avg_dur = sum(work_durations) / len(work_durations)
         print 'Average work duration: %.0f ms' % (avg_dur * 1000)
         work_durations = []
-    poll_for(TICK_DURATION - (time.time() - start)) # throttling
+    poll_for(TICK_DURATION - (time.time() - start))  # throttling
