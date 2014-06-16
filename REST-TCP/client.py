@@ -13,6 +13,7 @@ class Game:
         self.borders = []
         self.pellets = []
         self.players = {}
+        self.direction = 'right'
     def set_borders(self, box_list):
         self.borders = box_list
     def set_pellets(self, box_list):
@@ -21,6 +22,11 @@ class Game:
         self.players = d
     def get_mybox(self):
         return self.players[self.myname]
+    def get_direction(self):
+        return self.direction
+    def set_direction(self, d):
+        self.direction = d
+        
 game = Game()
 
 ########### network #################
@@ -48,10 +54,10 @@ class Client(Handler):
             players = self._obtain(repr['players'], self._callback_players)
             if players:
                 game.set_players(players)
-            if 'you' in repr:
-                pass  # TODO: register this URL for future POST
-
-            
+            if 'you' in repr and game.myname in game.players:
+                me = self._obtain(repr['you'], self._callback_me)
+                # do nothing if there is data, enqueue if there is a link/form
+                
     def _callback_borders(self, mtype, repr):
         if mtype == 'app/boxlist+json':
             borders = [box for box in repr]
@@ -69,8 +75,10 @@ class Client(Handler):
             game.set_players(players)
         elif mtype == 'app/boxdict+json':
             # player names are provided
-            players = repr
-            
+            game.set_players(repr)
+    
+    def _callback_me(self, mtype, repr):
+        pass  # nothing to do (yet)
 
     def _obtain(self, subdata, callback):
         if 'data' in subdata:
@@ -86,6 +94,8 @@ class Client(Handler):
                 req_args['name'] = game.myname
             if 'box' in arg_names:
                 req_args['box'] = game.get_mybox()
+            if 'dir' in arg_names:
+                req_args['dir'] = game.get_direction()
             self.enqueue_request(meth, url, req_args, callback)
     
     def _send_next_request(self):
@@ -110,9 +120,6 @@ class Client(Handler):
         while len(self._request_queue) > 0 or self._pending_rsrc_req is not None:
             poll(timeout=0.1)
     
-    def send_command(self, direction):
-         print 'should send command'  # TODO: send command every loop iteration
-        
 client = Client('localhost', 8888)  # connect asynchronously
 while not client.connected:  # poll until connected
     poll(timeout=0.1)
@@ -130,7 +137,7 @@ def process_inputs():
             if key == K_ESCAPE:
                 exit()
             elif key in valid_inputs:
-                client.send_command(valid_inputs[key])
+                game.set_direction(valid_inputs[key])
                 
 
 
@@ -153,15 +160,13 @@ def draw_everything():
 
 ############# main loop #############
 TICK_DURATION = 0.02  # seconds
-work_durations = []
 while client.connected:
     start = time.time()
     client.fetch_game_state()  # blocking
     draw_everything()
     process_inputs()
-    work_durations.append(time.time() - start)
-    if len(work_durations) >= 50:  # average over X frames
-        avg_dur = sum(work_durations) / len(work_durations)
-        print 'Average work duration: %.0f ms' % (avg_dur * 1000)
-        work_durations = []
-    poll_for(TICK_DURATION - (time.time() - start))  # throttling
+    idle_time = TICK_DURATION - (time.time() - start)  # throttling
+    if idle_time > 0:
+        poll_for(idle_time)
+    else:
+        print 'The frame is late by %4.0f ms' % (-idle_time)
