@@ -107,17 +107,27 @@ class MyHandler(Handler):
                     SELECT name, x, y, size FROM players WHERE url = ?;
                     ''', (resource,)).fetchone()
                 box = [x + dx, y + dy, size, size]
-                collided = any([collide_boxes(box, brdr) for brdr in borders])
-                if collided:
-                    db_cur.execute('''
-                        UPDATE players SET x = 150, y = 150, size = 10 WHERE url = ?;
-                        ''', (resource,))
-                    db_conn.commit()
-                else:
-                    db_cur.execute('''
-                        UPDATE players SET x = ?, y = ?, size = ? WHERE url = ?;
-                        ''', (box[0], box[1], box[2], resource))
-                    db_conn.commit()
+                # collision with pellets
+                pellets = db_cur.execute('''
+                    SELECT id, x, y, size FROM pellets;
+                    ''').fetchall()
+                for pellet in pellets:
+                    pid, px, py, psize = pellet
+                    if collide_boxes(box, [px, py, psize, psize]):
+                        box = [box[0], box[1], box[2] * 1.2, box[3] * 1.2]
+                        db_cur.execute('''
+                            UPDATE pellets SET x = ?, y = ?, size = ?
+                            WHERE id = ?;
+                            ''', (randint(10, 380), randint(10, 280), 5, pid))
+                        db_conn.commit()
+                # collision with borders
+                col_brdr = any([collide_boxes(box, brdr) for brdr in borders])
+                if col_brdr:
+                    box = [150, 150, 10, 10]
+                db_cur.execute('''
+                    UPDATE players SET x = ?, y = ?, size = ? WHERE url = ?;
+                    ''', (box[0], box[1], box[2], resource))
+                db_conn.commit()
             box_dict = { name: box}
             response = {'resource': resource,
                         'type': 'app/boxdict+json',
