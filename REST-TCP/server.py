@@ -28,6 +28,15 @@ for pellet_id in range(4):
 db_conn.commit()
 
 
+
+input_map = {'up': (0, -5), 'down': (0, 5), 'left': (-5, 0), 'right': (5, 0)}
+borders = [ [0, 0, 2, 300], [0, 0, 400, 2], [398, 0, 2, 300], [0, 298, 400, 2] ]
+def collide_boxes(box1, box2):
+    x1, y1, w1, h1 = box1
+    x2, y2, w2, h2 = box2
+    return x1 < x2 + w2 and y1 < y2 + h2 and x2 < x1 + w1 and y2 < y1 + h1
+
+
 class MyHandler(Handler):
     
     def on_msg(self, req):
@@ -40,7 +49,7 @@ class MyHandler(Handler):
                     'players': {'link': '/players'}
                     }
             if 'name' in args:  # TODO: how do clients know to submit their name?
-                name = args['name']  # TODO: also add password/token detection
+                name = args['name']  # TODO: also add password detection
                 players = db_cur.execute('''
                     SELECT name, url FROM players
                     ''').fetchall()
@@ -52,7 +61,7 @@ class MyHandler(Handler):
                     db_cur.execute('''
                         INSERT INTO players(url, name, x, y, size) 
                         VALUES (?, ?, ?, ?, ?);
-                        ''', (url, name, 150, 150, 10))
+                        ''', (url, name, 150, 150, 10))  # start position
                     db_conn.commit()
                 repr['you'] = {'form': {'method': 'POST',
                                         'url': url,
@@ -64,8 +73,7 @@ class MyHandler(Handler):
                         }
         elif (method, resource) == ('GET', '/borders'):
             # borders are static, can be cached, no need to store them in DB
-            repr = [ [0, 0, 2, 300], [0, 0, 400, 2],
-                    [398, 0, 2, 300], [0, 298, 400, 2] ]
+            repr = borders
             response = {'resource': resource,
                         'type': 'app/boxlist+json',
                         'representation': repr
@@ -82,7 +90,9 @@ class MyHandler(Handler):
                         }
         elif (method, resource) == ('GET', '/players'):
             # players always change, fetch them from DB
-            players = db_cur.execute('SELECT name, x, y, size, url FROM players;').fetchall()
+            players = db_cur.execute('''
+                SELECT name, x, y, size, url FROM players;
+                ''').fetchall()
             box_dict = { p[0]: [p[1], p[2], p[3], p[3]] for p in players}
             response = {'resource': resource,
                         'type': 'app/boxdict+json',
@@ -91,17 +101,24 @@ class MyHandler(Handler):
         elif method == 'POST' and resource.startswith('/player/'):
             if 'dir' in args:
                 d = args['dir']
-                input_map = {'up': (0, -1), 'down': (0, 1),
-                             'left': (-1, 0), 'right': (1, 0)}
                 dx, dy = input_map[d]
                 # TODO: detect collisions with borders, pellets, and players
-                db_cur.execute('''
-                    UPDATE players SET x = x + ?, y = y + ? WHERE url = ?;
-                    ''', (dx, dy, resource))
-            p = db_cur.execute('''
-                SELECT name, x, y, size, url FROM players WHERE url = ?;
-                ''', (resource,)).fetchone()
-            box_dict = { p[0]: [p[1], p[2], p[3], p[3]]}
+                name, x, y, size = db_cur.execute('''
+                    SELECT name, x, y, size FROM players WHERE url = ?;
+                    ''', (resource,)).fetchone()
+                box = [x + dx, y + dy, size, size]
+                collided = any([collide_boxes(box, brdr) for brdr in borders])
+                if collided:
+                    db_cur.execute('''
+                        UPDATE players SET x = 150, y = 150, size = 10 WHERE url = ?;
+                        ''', (resource,))
+                    db_conn.commit()
+                else:
+                    db_cur.execute('''
+                        UPDATE players SET x = ?, y = ?, size = ? WHERE url = ?;
+                        ''', (box[0], box[1], box[2], resource))
+                    db_conn.commit()
+            box_dict = { name: box}
             response = {'resource': resource,
                         'type': 'app/boxdict+json',
                         'representation': box_dict

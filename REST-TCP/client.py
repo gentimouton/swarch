@@ -159,14 +159,14 @@ def draw_everything():
 
 
 ############# main loop #############
-TICK_DURATION = 0.02  # seconds
+TICK_DURATION = 0.1  # seconds
 while client.connected:
     start = time.time()
     client.fetch_game_state()  # blocking
     draw_everything()
     process_inputs()
     idle_time = TICK_DURATION - (time.time() - start)  # throttling
-    if idle_time > 0:
-        poll_for(idle_time)
+    if idle_time < 0:
+        print 'The frame is late by %4.0f ms' % (-idle_time * 1000)
     else:
-        print 'The frame is late by %4.0f ms' % (-idle_time)
+        poll_for(idle_time)
