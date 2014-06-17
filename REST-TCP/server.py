@@ -1,11 +1,14 @@
 import json
 from network import Listener, Handler, poll
-import sqlite3
 from random import randint
+import sqlite3
+
 
 HOST_NAME = 'localhost'  
 PORT_NUMBER = 8888
 SALT = 'secret salt'  # protects from dictionary attacks
+
+BORDERS = [ [0, 0, 2, 300], [0, 0, 400, 2], [398, 0, 2, 300], [0, 298, 400, 2] ]
 
 class DB:
     
@@ -39,12 +42,33 @@ class DB:
     
     def close(self):
         self._conn.close()
+
+
+class MyHandler(Handler):
+    
+    def on_msg(self, req):
+        method = req['method']
+        resource = req['resource']
+        args = req['args']
+        if (method, resource) == ('GET', '/game/1'):
+            mtype, repr = get_game(args)
+        elif (method, resource) == ('GET', '/borders'):
+            mtype, repr = get_borders(args)
+        elif (method, resource) == ('GET', '/pellets'):
+            mtype, repr = get_pellets(args)
+        elif (method, resource) == ('GET', '/players'):
+            mtype, repr = get_players(args)
+        elif method == 'POST' and resource.startswith('/player/'):
+            mtype, repr = post_player(resource, args)
+        else:  # invalid resource 
+            mtype, repr = 'text/plain', 'Wrong resource or method.\nGo to /'
+        response = {'resource': resource,
+                    'type': mtype,
+                    'representation': repr
+                    }
+        self.do_send(response)
         
-db = DB()
-
-
-input_map = {'up': (0, -5), 'down': (0, 5), 'left': (-5, 0), 'right': (5, 0)}
-borders = [ [0, 0, 2, 300], [0, 0, 400, 2], [398, 0, 2, 300], [0, 298, 400, 2] ]
+        
 def collide_boxes(box1, box2):
     x1, y1, w1, h1 = box1
     x2, y2, w2, h2 = box2
@@ -77,9 +101,11 @@ def get_game(args):
                        }
     return 'app/game+json', repr
     
+    
 def get_borders(args):
     # borders are static, can be cached, no need to store them in DB
-    return 'app/boxlist+json', borders
+    return 'app/boxlist+json', BORDERS
+
 
 def get_pellets(args):
     # pellets may change, fetch them from DB
@@ -88,12 +114,16 @@ def get_pellets(args):
     box_list = [ [p[0], p[1], p[2], p[2]] for p in pellets]
     return 'app/boxlist+json', box_list
 
+
 def get_players(args):
     # players always change, fetch them from DB
     q = 'SELECT name, x, y, size, url FROM players;'
     players = db.execute(q).fetchall()
     box_dict = { p[0]: [p[1], p[2], p[3], p[3]] for p in players}
     return 'app/boxdict+json', box_dict
+
+
+input_map = {'up': (0, -5), 'down': (0, 5), 'left': (-5, 0), 'right': (5, 0)}
 
 def post_player(url, args):
     # TODO: detect collisions with other players
@@ -107,6 +137,28 @@ def post_player(url, args):
         return 'text/plain', 'Need direction argument'
     dx, dy = input_map[args['direction']]
     box = [x + dx, y + dy, size, size]
+    # collision with other players
+    q = 'SELECT name, x, y, size FROM players WHERE name != ?;'
+    qargs = (name,)
+    players = db.execute(q, qargs).fetchall()
+    for player in players:
+        pname, px, py, psize = player
+        if collide_boxes(box, [px, py, psize, psize]):
+            if size > psize:
+                box = [box[0], box[1], box[2] + psize, box[3] + psize]
+                q = 'UPDATE players SET x = ?, y = ?, size = ? WHERE name = ?;'
+                qargs = randint(10, 380), randint(10, 280), 10, pname
+                db.execute(q, qargs)
+            elif size < psize:
+                box = [randint(10, 380), randint(10, 280), 10, 10]
+                q = 'UPDATE players SET size = ? WHERE name = ?;'
+                qargs = (psize + box[2]), pname
+                db.execute(q, qargs)
+            else: # same size, kill both
+                box = [randint(10, 380), randint(10, 280), 10, 10]
+                q = 'UPDATE players SET x = ?, y = ?, size = ? WHERE name = ?;'
+                qargs = randint(10, 380), randint(10, 280), 10, pname
+                db.execute(q, qargs)
     # collision with pellets
     q = 'SELECT id, x, y, size FROM pellets;'
     pellets = db.execute(q).fetchall()
@@ -118,9 +170,8 @@ def post_player(url, args):
                     WHERE id = ?;'''
             qargs = randint(10, 380), randint(10, 280), 5, pid 
             db.execute(q, qargs)
-            db.commit()
     # collision with borders
-    col_brdr = any([collide_boxes(box, brdr) for brdr in borders])
+    col_brdr = any([collide_boxes(box, brdr) for brdr in BORDERS])
     if col_brdr:
         box = [randint(10, 380), randint(10, 280), 10, 10]
     q = 'UPDATE players SET x = ?, y = ?, size = ? WHERE url = ?;'
@@ -129,35 +180,9 @@ def post_player(url, args):
     db.commit()
     return 'app/boxdict+json', {name: box}
     
-    
 
-
-class MyHandler(Handler):
-    
-    def on_msg(self, req):
-        method = req['method']
-        resource = req['resource']
-        args = req['args']
-        if (method, resource) == ('GET', '/game/1'):
-            mtype, repr = get_game(args)
-        elif (method, resource) == ('GET', '/borders'):
-            mtype, repr = get_borders(args)
-        elif (method, resource) == ('GET', '/pellets'):
-            mtype, repr = get_pellets(args)
-        elif (method, resource) == ('GET', '/players'):
-            mtype, repr = get_players(args)
-        elif method == 'POST' and resource.startswith('/player/'):
-            mtype, repr = post_player(resource, args)
-        else:  # invalid resource 
-            mtype, repr = 'text/plain', 'Wrong resource or method.\nGo to /'
-        response = {'resource': resource,
-                    'type': mtype,
-                    'representation': repr
-                    }
-        self.do_send(response)
-
-        
 if __name__ == '__main__':
+    db = DB()
     server = Listener(8888, MyHandler)
     try:
         while 1:
