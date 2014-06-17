@@ -78,7 +78,8 @@ class Client(Handler):
             game.set_players(repr)
     
     def _callback_me(self, mtype, repr):
-        pass  # nothing to do (yet)
+        if mtype == 'text/plain': # an error happened
+            print repr
 
     def _obtain(self, subdata, callback):
         if 'data' in subdata:
@@ -94,8 +95,8 @@ class Client(Handler):
                 req_args['name'] = game.myname
             if 'box' in arg_names:
                 req_args['box'] = game.get_mybox()
-            if 'dir' in arg_names:
-                req_args['dir'] = game.get_direction()
+            if 'direction' in arg_names:
+                req_args['direction'] = game.get_direction()
             self.enqueue_request(meth, url, req_args, callback)
     
     def _send_next_request(self):
