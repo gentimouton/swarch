@@ -5,28 +5,39 @@ from random import randint
 
 HOST_NAME = 'localhost'  
 PORT_NUMBER = 8888
-SALT = 'secret salt'
+SALT = 'secret salt'  # protects from dictionary attacks
 
-db_conn = sqlite3.connect('whale.sqlite3')
-db_cur = db_conn.cursor()
-db_cur.execute('''
-    CREATE TABLE IF NOT EXISTS players
-    (url TEXT, name TEXT, x INT, y INT, size INT, PRIMARY KEY (url, name));
-    ''')
-# TODO: also add an expiration timestamp
-db_cur.execute('''
-    CREATE TABLE IF NOT EXISTS pellets 
-    (id INTEGER PRIMARY KEY, x INT, y INT, size INT);
-    ''')
-for pellet_id in range(4):
-    try:
-        db_cur.execute('''
-            INSERT OR ABORT INTO pellets VALUES (?, ?, ?, ?);
-            ''', (pellet_id, randint(10, 380), randint(10, 280), 5))
-    except sqlite3.IntegrityError:  # primary key conflict: row already exists
-        pass
-db_conn.commit()
+class DB:
+    
+    def __init__(self):
+        self._conn = sqlite3.connect('whale.sqlite3')
+        self._cur = self._conn.cursor()
+        # TODO: add expiration timestamp to the players table
+        self.execute('''
+            CREATE TABLE IF NOT EXISTS players
+            (url TEXT, name TEXT, x INT, y INT, size INT, 
+            PRIMARY KEY (url, name) );
+            ''')
+        self.execute('''
+            CREATE TABLE IF NOT EXISTS pellets 
+            (id INTEGER PRIMARY KEY, x INT, y INT, size INT);
+            ''')
+        for pid in range(4):
+            try:
+                q = 'INSERT OR ABORT INTO pellets VALUES (?, ?, ?, ?);'
+                args = pid, randint(10, 380), randint(10, 280), 5
+                self.execute(q, args)
+            except sqlite3.IntegrityError:
+                # primary key conflict: row already exists
+                pass
+    
+    def execute(self, q, args=()):
+        return self._cur.execute(q, args)
+        
+    def commit(self):
+        self._conn.commit()
 
+db = DB()
 
 
 input_map = {'up': (0, -5), 'down': (0, 5), 'left': (-5, 0), 'right': (5, 0)}
@@ -48,21 +59,20 @@ class MyHandler(Handler):
                     'pellets': {'link': '/pellets'},
                     'players': {'link': '/players'}
                     }
-            if 'name' in args:  # TODO: how do clients know to submit their name?
+            if 'name' in args:  # TODO: clients know to submit their name from /login
                 name = args['name']  # TODO: also add password detection
-                players = db_cur.execute('''
-                    SELECT name, url FROM players
-                    ''').fetchall()
+                q = 'SELECT name, url FROM players'
+                players = db.execute(q).fetchall()
                 name2url = {p[0]: p[1] for p in players}
                 if name in name2url:
                     url = name2url[name]
                 else:
                     url = '/player/' + str(hash(name + SALT))
-                    db_cur.execute('''
-                        INSERT INTO players(url, name, x, y, size) 
-                        VALUES (?, ?, ?, ?, ?);
-                        ''', (url, name, 150, 150, 10))  # start position
-                    db_conn.commit()
+                    q = '''INSERT INTO players(url, name, x, y, size) 
+                            VALUES (?, ?, ?, ?, ?);'''
+                    args = url, name, 150, 150, 10  # start position
+                    db.execute(q, args) 
+                    db.commit()
                 repr['you'] = {'form': {'method': 'POST',
                                         'url': url,
                                         'args': ['dir']}
@@ -80,9 +90,8 @@ class MyHandler(Handler):
                         }
         elif (method, resource) == ('GET', '/pellets'):
             # pellets may change, fetch them from DB
-            pellets = db_cur.execute('''
-                SELECT x, y, size FROM pellets;
-                ''').fetchall()
+            q = 'SELECT x, y, size FROM pellets;'
+            pellets = db.execute(q).fetchall()
             repr = [ [p[0], p[1], p[2], p[2]] for p in pellets]
             response = {'resource': resource,
                         'type': 'app/boxlist+json',
@@ -90,9 +99,8 @@ class MyHandler(Handler):
                         }
         elif (method, resource) == ('GET', '/players'):
             # players always change, fetch them from DB
-            players = db_cur.execute('''
-                SELECT name, x, y, size, url FROM players;
-                ''').fetchall()
+            q = 'SELECT name, x, y, size, url FROM players;'
+            players = db.execute(q).fetchall()
             box_dict = { p[0]: [p[1], p[2], p[3], p[3]] for p in players}
             response = {'resource': resource,
                         'type': 'app/boxdict+json',
@@ -103,31 +111,30 @@ class MyHandler(Handler):
                 d = args['dir']
                 dx, dy = input_map[d]
                 # TODO: detect collisions with borders, pellets, and players
-                name, x, y, size = db_cur.execute('''
-                    SELECT name, x, y, size FROM players WHERE url = ?;
-                    ''', (resource,)).fetchone()
+                q = 'SELECT name, x, y, size FROM players WHERE url = ?;'
+                args = (resource,)
+                name, x, y, size = db.execute(q, args).fetchone()
                 box = [x + dx, y + dy, size, size]
                 # collision with pellets
-                pellets = db_cur.execute('''
-                    SELECT id, x, y, size FROM pellets;
-                    ''').fetchall()
+                q = 'SELECT id, x, y, size FROM pellets;'
+                pellets = db.execute(q).fetchall()
                 for pellet in pellets:
                     pid, px, py, psize = pellet
                     if collide_boxes(box, [px, py, psize, psize]):
                         box = [box[0], box[1], box[2] * 1.2, box[3] * 1.2]
-                        db_cur.execute('''
-                            UPDATE pellets SET x = ?, y = ?, size = ?
-                            WHERE id = ?;
-                            ''', (randint(10, 380), randint(10, 280), 5, pid))
-                        db_conn.commit()
+                        q = '''UPDATE pellets SET x = ?, y = ?, size = ? 
+                                WHERE id = ?;'''
+                        args = randint(10, 380), randint(10, 280), 5, pid 
+                        db.execute(q, args)
+                        db.commit()
                 # collision with borders
                 col_brdr = any([collide_boxes(box, brdr) for brdr in borders])
                 if col_brdr:
                     box = [150, 150, 10, 10]
-                db_cur.execute('''
-                    UPDATE players SET x = ?, y = ?, size = ? WHERE url = ?;
-                    ''', (box[0], box[1], box[2], resource))
-                db_conn.commit()
+                q = 'UPDATE players SET x = ?, y = ?, size = ? WHERE url = ?;'
+                args = box[0], box[1], box[2], resource
+                db.execute(q, args)
+                db.commit()
             box_dict = { name: box}
             response = {'resource': resource,
                         'type': 'app/boxdict+json',
