@@ -131,17 +131,6 @@ def apply_events():
     
 def update_simulation():
     [player.update() for player in players.values()]
-    
-def broadcast_state2():
-    # Send to all players 1) the whole game state, and 2) their own name, 
-    # so players can draw themselves differently from the other players.
-    serialized_players = {p.name: p.box for p in players.values()}
-    for handler, player in players.items():
-        msg = {'borders': borders,
-               'pellets': pellets,
-               'myname': player.name,
-               'players': serialized_players}
-        handler.do_send(msg)
         
 def broadcast_state():
     for h, p in players.items():
