@@ -23,6 +23,11 @@ Similar works
 - 207 interpretations and appearances of Catalan Numbers, Stanley, http://www-math.mit.edu/~rstan/ec/
 - Exercises in Programming Styles, Lopes
 
+Software architecture works with surveys of architectural styles:
+- Design and use of software architectures, by Jan Bosch. Looks at pipe and filter, layers, blackboard, OO, and implicit invocation. Framework: performance, maintainability, reliability, safety, and security.
+- Software architecture, by Taylor et al. Same as Bosch + call and return (main and subroutines), virtual machines, client-server, batch, rule-based, interpreter, mobile code, and pub-sub. Framework: summary, components, connectors, data elements, topology, additional constraints imposed, qualities yielded, typical uses, cautions, and relations to programming languages or environments.
+- Software architecture, by Shaw and Garlan.
+
 
 Backlog
 ----
@@ -30,10 +35,13 @@ Backlog
 - p2p with lockstep
 - p2p with one pellet owner, others have copies: one "host"
 - p2p with rollback
+- p2p a la Chord
+- p2p with vector clocks/Lamport
+- p2p with mesh/arbitrary graph
 - spatial pubsub
 - RPC
 - SOA: game vs chat service?
-- operational transform (between N clients and 1 server)
+- operational transform (between N clients and 1 server, or p2p)
 - reverse proxy to load-balance 
 - redirect asset requests to CDN (intermediaries are easy to add in REST)
 - stream assets vs fat client
