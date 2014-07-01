@@ -32,24 +32,32 @@ Software architecture works with surveys of architectural styles:
 Backlog
 ----
 
-- p2p with lockstep
+- turn-based (A's turn, sends his move, then B's turn, then C joins and is added to the end of the player list after B, then B sends his move, then C's turn, then A's turn, ...)
+- p2p with lockstep (sync vs async)
 - p2p with one pellet owner, others have copies: one "host"
 - p2p with rollback
 - p2p a la Chord
 - p2p with vector clocks/Lamport
 - p2p with mesh/arbitrary graph
-- spatial pubsub
+- p2p with NAT punching/surrogate, like Semigod
+- p2p with superpeers, like Skype
+- pubsub without broker: each node maintains a list of subscriptions (DSG sort of does that)
+- timewarp
+- spatial pubsubs: static, dynamic BSP, dynamic Voronoi (Pikko), DSG (operational partitioning: physics vs script vs client manager)
 - RPC
+- one server for live actions, one server for storage, like Realm of the Mad God (or like DSG's persistence actor vs script actor, except in DSG, clients connect to a client manager, whereas in RotMG, they send messages directly to both servers)
 - SOA: game vs chat service?
 - operational transform (between N clients and 1 server, or p2p)
 - reverse proxy to load-balance 
 - redirect asset requests to CDN (intermediaries are easy to add in REST)
 - stream assets vs fat client
+- clients pull updates vs server pushes updates
 - plugin
 - blackboard
 - sense compute control (avionics)
 - replication of data vs computation, Paxos, virtual synchrony
 - CAP, NOSQL, ACID, BASE
+- shared disk (ie servers share same DB) vs shared nothing (each server has its own DB)
 - SOA vs service bus vs central repository vs linked data 
 - grid vs cloud
 - CRUD (easy to add in RPC?)
